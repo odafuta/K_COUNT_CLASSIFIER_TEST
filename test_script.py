@@ -17,9 +17,9 @@ for f in required_files:
 # This is a cleaner approach than using subprocess for everything,
 # as it allows us to directly get the dictionary of results.
 try:
-    from as import generate_LVCA_adaptive_sampling
-    from hg import generate_binary_covering_array_heuristic_greedy
-    from sa import lv_cit_sa
+    from adaptive_sampling import generate_LVCA_adaptive_sampling
+    from heuristic_greedy import generate_binary_covering_array_heuristic_greedy
+    from simulated_annealing import lv_cit_sa
 except ImportError as e:
     print(f"Error: Could not import a function from as.py, hg.py, or sa.py.")
     print(f"Please ensure they are in the same directory and have no syntax errors.")
