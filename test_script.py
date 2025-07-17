@@ -73,17 +73,16 @@ def main():
         case_results = {"params": params}
 
         # --- Run Adaptive Sampling (as.py) ---
-        #print("Running Adaptive Sampling...")
-        #as_result = generate_LVCA_adaptive_sampling(n, tau, k, seed=common_seed, verbose=False)
-        #case_results['as'] = {'rows': as_result['num_rows'], 'time': as_result['time']}
-        #print(f"  -> Done in {as_result['time']:.4f}s, Generated {as_result['num_rows']} rows.")
+        print("Running Adaptive Sampling...")
+        as_result = generate_LVCA_adaptive_sampling(n, tau, k, seed=common_seed, verbose=False)
+        case_results['as'] = {'rows': as_result['num_rows'], 'time': as_result['time']}
+        print(f"  -> Done in {as_result['time']:.4f}s, Generated {as_result['num_rows']} rows.")
 
         # --- Run Heuristic Greedy (hg.py) ---
         print("Running Heuristic Greedy...")
         hg_result = generate_binary_covering_array_heuristic_greedy(n, tau, k, seed=common_seed, verbose=False)
         case_results['hg'] = {'rows': hg_result['num_rows'], 'time': hg_result['time']}
         print(f"  -> Done in {hg_result['time']:.4f}s, Generated {hg_result['num_rows']} rows.")
-
 
         # --- Run Simulated Annealing (sa.py) ---
         print("Running Simulated Annealing...")
@@ -103,16 +102,16 @@ def main():
     for result in all_results:
         params_str = f"({result['params']['n']}, {result['params']['tau']}, {result['params']['k']})"
 
-        # Adaptive Sampling
+        #Adaptive Sampling
         as_res = result['adaptive_sampling']
         print(f"| {params_str:<25} | {'Adaptive Sampling (adaptive_sampling.py)':<25} | {as_res['rows']:>12} | {as_res['time']:>10.4f} |")
 
         # Heuristic Greedy
-        hg_res = result['heuristic_greedy']
+        hg_res = result['hg']
         print(f"| {'':<25} | {'Heuristic Greedy (heuristic_greedy.py)':<25} | {hg_res['rows']:>12} | {hg_res['time']:>10.4f} |")
 
         # Simulated Annealing
-        sa_res = result['simulated_annealing']
+        sa_res = result['sa']
         print(f"| {'':<25} | {'Simulated Annealing (simulated_annealing.py)':<25} | {sa_res['rows']:>12} | {sa_res['time']:>10.4f} |")
 
         print("-" * 75)
