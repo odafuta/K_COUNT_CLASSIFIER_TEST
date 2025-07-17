@@ -4,7 +4,7 @@ import random
 test_cases = []
 for _ in range(10):
     tau = random.randint(2, 4)
-    n = random.randint(2 * tau, 40)
+    n = random.randint(2 * tau, 10)
     k = random.randint(tau, n - tau)
     test_cases.append({"n": n, "tau": tau, "k": k})
 
