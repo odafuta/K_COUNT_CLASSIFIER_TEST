@@ -1,0 +1,2 @@
+# K_COUNT_CLASSIFIER_TEST
+機械学習マルチ分類器に対するk制約を持たせたテストケース生成
