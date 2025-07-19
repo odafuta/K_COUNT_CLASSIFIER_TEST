@@ -100,26 +100,31 @@ def main():
     print("-" * 75)
 
 
-    with open("result_summary.xlsx", "w") as f:
+    with open("result_summary.csv", "w") as f:
+
+        f.write(f"{'n':<25} {'tau':<25} {'k':<25} {'Algorithm':<25} {'Array_Size':>12}  {'Time(s)':>10}\n")
 
         for result in all_results:
             params_str = f"({result['params']['n']}, {result['params']['tau']}, {result['params']['k']})"
             print(params_str)
+            #f.write(f"{result['params']['n']:<25} {result['params']['tau']:<25} {result['params']['k']:<25}")
 
         #Adaptive Sampling
             #as_res = result['adaptive_sampling']
             #print(f"| {params_str:<25} | {'Adaptive Sampling (adaptive_sampling.py)':<25} | {as_res['rows']:>12} | {as_res['time']:>10.4f} |")
             #f.write(f"最終的な生成行数 = {as_res['rows']:>12}\n")
 
+            f.write(f"{result['params']['n']:<25} {result['params']['tau']:<25} {result['params']['k']:<25}")
         # Heuristic Greedy
             hg_res = result['hg']
             print(f"| {'':<25} | {'Heuristic Greedy (heuristic_greedy.py)':<25} | {hg_res['rows']:>12} | {hg_res['time']:>10.4f} |")
-            f.write(f"| {'':<25} | {'Heuristic Greedy (heuristic_greedy.py)':<25} | {hg_res['rows']:>12} | {hg_res['time']:>10.4f} |\n")
+            f.write(f"{'Heuristic_Greedy':<25} {hg_res['rows']:>12} {hg_res['time']:>10.4f}\n")
 
+            f.write(f"{result['params']['n']:<25} {result['params']['tau']:<25} {result['params']['k']:<25}")
         # Simulated Annealing
             sa_res = result['sa']
             print(f"| {'':<25} | {'Simulated Annealing (simulated_annealing.py)':<25} | {sa_res['rows']:>12} | {sa_res['time']:>10.4f} |")
-            f.write(f"| {'':<25} | {'Simulated Annealing (simulated_annealing.py)':<25} | {sa_res['rows']:>12} | {sa_res['time']:>10.4f} |\n")
+            f.write(f"{'Simulated_Annealing':<25} {sa_res['rows']:>12} {sa_res['time']:>10.4f}\n")
 
             print("-" * 75)
 
