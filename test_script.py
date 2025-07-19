@@ -108,25 +108,19 @@ def main():
         for result in all_results:
             params_str = f"({result['params']['n']}, {result['params']['tau']}, {result['params']['k']})"
 
-        #Adaptive Sampling
-            #f.write(f"{result['params']['n']:<4} {result['params']['tau']:<4} {result['params']['k']:<4}")
+            #Adaptive Sampling
             as_res = result['as']
             print(f"| {params_str:<25} | {'Adaptive Sampling (adaptive_sampling.py)':<45} | {as_res['rows']:>12} | {as_res['time']:>10.4f} |")
-            #f.write(f"{'Adaptive_Sampling':<25} {as_res['rows']:>12} {as_res['time']:>10.4f}\n")
             f.write(f"{params_str:<10} {'Adaptive_Sampling':<25} {as_res['rows']:>12} {as_res['time']:>10.4f}\n")
 
-        # Heuristic Greedy
-            #f.write(f"{result['params']['n']:<4} {result['params']['tau']:<4} {result['params']['k']:<4}")
+            # Heuristic Greedy
             hg_res = result['hg']
             print(f"| {'':<25} | {'Heuristic Greedy (heuristic_greedy.py)':<45} | {hg_res['rows']:>12} | {hg_res['time']:>10.4f} |")
-            #f.write(f"{'Heuristic_Greedy':<25} {hg_res['rows']:>12} {hg_res['time']:>10.4f}\n")
             f.write(f"{' ':<10} {'Heuristic_Greedy':<25} {hg_res['rows']:>12} {hg_res['time']:>10.4f}\n")
 
-        # Simulated Annealing
-            #f.write(f"{result['params']['n']:<4} {result['params']['tau']:<4} {result['params']['k']:<4}")
+            # Simulated Annealing
             sa_res = result['sa']
             print(f"| {'':<25} | {'Simulated Annealing (simulated_annealing.py)':<45} | {sa_res['rows']:>12} | {sa_res['time']:>10.4f} |")
-            #f.write(f"{'Simulated_Annealing':<25} {sa_res['rows']:>12} {sa_res['time']:>10.4f}\n")
             f.write(f"{' ':<10} {'Simulated_Annealing':<25} {sa_res['rows']:>12} {sa_res['time']:>10.4f}\n")
 
             print(line)

@@ -1,7 +1,31 @@
 (n,tau,k)  Algorithm                   Array_Size    Time(s)
-(5, 2, 2)  Adaptive_Sampling                   10     0.0008
-           Heuristic_Greedy                    11     0.1411
-           Simulated_Annealing                 10     0.0035
-(7, 3, 3)  Adaptive_Sampling                   35     0.0289
-           Heuristic_Greedy                    37     1.4487
-           Simulated_Annealing                 35     0.1865
+(4, 2, 2)  Adaptive_Sampling                    6     0.0004
+           Heuristic_Greedy                     7     0.0803
+           Simulated_Annealing                  6     0.0001
+(6, 2, 2)  Adaptive_Sampling                   15     0.0015
+           Heuristic_Greedy                    16     0.2346
+           Simulated_Annealing                 15     0.0101
+(6, 3, 3)  Adaptive_Sampling                   20     0.0076
+           Heuristic_Greedy                    23     0.7249
+           Simulated_Annealing                 20     0.0464
+(7, 3, 3)  Adaptive_Sampling                   35     0.0297
+           Heuristic_Greedy                    37     1.4489
+           Simulated_Annealing                 35     0.1898
+(7, 3, 4)  Adaptive_Sampling                   17     0.0195
+           Heuristic_Greedy                    17     1.1086
+           Simulated_Annealing                 17     0.1403
+(8, 2, 4)  Adaptive_Sampling                    8     0.0048
+           Heuristic_Greedy                     8     0.2662
+           Simulated_Annealing                  8     0.0227
+(9, 2, 3)  Adaptive_Sampling                   18     0.0126
+           Heuristic_Greedy                    12     0.3992
+           Simulated_Annealing                 16     0.0403
+(10, 2, 2) Adaptive_Sampling                   45     0.0294
+           Heuristic_Greedy                    46     1.2011
+           Simulated_Annealing                 30     0.1489
+(10, 3, 3) Adaptive_Sampling                  120     0.7678
+           Heuristic_Greedy                   120     9.0706
+           Simulated_Annealing                 56     2.1143
+(10, 3, 5) Adaptive_Sampling                   29     0.2677
+           Heuristic_Greedy                    21     4.0378
+           Simulated_Annealing                 22     5.5390
