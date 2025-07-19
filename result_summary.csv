@@ -1,5 +1,7 @@
-n                         tau                       k                         Algorithm                   Array_Size     Time(s)
-8                         3                         3                        Heuristic_Greedy                    57     2.7612
-8                         3                         3                        Simulated_Annealing                 44     0.4260
-7                         3                         3                        Heuristic_Greedy                    37     1.4769
-7                         3                         3                        Simulated_Annealing                 35     0.1870
+(n,tau,k)  Algorithm                   Array_Size    Time(s)
+(5, 2, 2)  Adaptive_Sampling                   10     0.0008
+           Heuristic_Greedy                    11     0.1411
+           Simulated_Annealing                 10     0.0035
+(7, 3, 3)  Adaptive_Sampling                   35     0.0289
+           Heuristic_Greedy                    37     1.4487
+           Simulated_Annealing                 35     0.1865

@@ -73,10 +73,10 @@ def main():
         case_results = {"params": params}
 
         # --- Run Adaptive Sampling (as.py) ---
-        #print("Running Adaptive Sampling...")
-        #as_result = generate_LVCA_adaptive_sampling(n, tau, k, seed=common_seed, verbose=False)
-        #case_results['as'] = {'rows': as_result['num_rows'], 'time': as_result['time']}
-        #print(f"  -> Done in {as_result['time']:.4f}s, Generated {as_result['num_rows']} rows.")
+        print("Running Adaptive Sampling...")
+        as_result = generate_LVCA_adaptive_sampling(n, tau, k, seed=common_seed, verbose=False)
+        case_results['as'] = {'rows': as_result['num_rows'], 'time': as_result['time']}
+        print(f"  -> Done in {as_result['time']:.4f}s, Generated {as_result['num_rows']} rows.")
 
         # --- Run Heuristic Greedy (hg.py) ---
         print("Running Heuristic Greedy...")
@@ -93,40 +93,43 @@ def main():
         all_results.append(case_results)
 
     # --- Step 5: Print the final summary table ---
+    line = "-" * 105
     print("\n\n--- Experiment Finished: Overall Results ---")
-    print("-" * 75)
-    header = f"| {'Test Case (n, tau, k)':<25} | {'Algorithm':<25} | {'Array Size':>12} | {'Time (s)':>10} |"
+    print(line)
+    header = f"| {'Test Case (n, tau, k)':<25} | {'Algorithm':<45} | {'Array Size':>12} | {'Time (s)':>10} |"
     print(header)
-    print("-" * 75)
+    print(line)
 
 
     with open("result_summary.csv", "w") as f:
 
-        f.write(f"{'n':<25} {'tau':<25} {'k':<25} {'Algorithm':<25} {'Array_Size':>12}  {'Time(s)':>10}\n")
+        f.write(f"{'(n,tau,k)':<10} {'Algorithm':<25} {'Array_Size':>12} {'Time(s)':>10}\n")
 
         for result in all_results:
             params_str = f"({result['params']['n']}, {result['params']['tau']}, {result['params']['k']})"
-            print(params_str)
-            #f.write(f"{result['params']['n']:<25} {result['params']['tau']:<25} {result['params']['k']:<25}")
 
         #Adaptive Sampling
-            #as_res = result['adaptive_sampling']
-            #print(f"| {params_str:<25} | {'Adaptive Sampling (adaptive_sampling.py)':<25} | {as_res['rows']:>12} | {as_res['time']:>10.4f} |")
-            #f.write(f"最終的な生成行数 = {as_res['rows']:>12}\n")
+            #f.write(f"{result['params']['n']:<4} {result['params']['tau']:<4} {result['params']['k']:<4}")
+            as_res = result['as']
+            print(f"| {params_str:<25} | {'Adaptive Sampling (adaptive_sampling.py)':<45} | {as_res['rows']:>12} | {as_res['time']:>10.4f} |")
+            #f.write(f"{'Adaptive_Sampling':<25} {as_res['rows']:>12} {as_res['time']:>10.4f}\n")
+            f.write(f"{params_str:<10} {'Adaptive_Sampling':<25} {as_res['rows']:>12} {as_res['time']:>10.4f}\n")
 
-            f.write(f"{result['params']['n']:<25} {result['params']['tau']:<25} {result['params']['k']:<25}")
         # Heuristic Greedy
+            #f.write(f"{result['params']['n']:<4} {result['params']['tau']:<4} {result['params']['k']:<4}")
             hg_res = result['hg']
-            print(f"| {'':<25} | {'Heuristic Greedy (heuristic_greedy.py)':<25} | {hg_res['rows']:>12} | {hg_res['time']:>10.4f} |")
-            f.write(f"{'Heuristic_Greedy':<25} {hg_res['rows']:>12} {hg_res['time']:>10.4f}\n")
+            print(f"| {'':<25} | {'Heuristic Greedy (heuristic_greedy.py)':<45} | {hg_res['rows']:>12} | {hg_res['time']:>10.4f} |")
+            #f.write(f"{'Heuristic_Greedy':<25} {hg_res['rows']:>12} {hg_res['time']:>10.4f}\n")
+            f.write(f"{' ':<10} {'Heuristic_Greedy':<25} {hg_res['rows']:>12} {hg_res['time']:>10.4f}\n")
 
-            f.write(f"{result['params']['n']:<25} {result['params']['tau']:<25} {result['params']['k']:<25}")
         # Simulated Annealing
+            #f.write(f"{result['params']['n']:<4} {result['params']['tau']:<4} {result['params']['k']:<4}")
             sa_res = result['sa']
-            print(f"| {'':<25} | {'Simulated Annealing (simulated_annealing.py)':<25} | {sa_res['rows']:>12} | {sa_res['time']:>10.4f} |")
-            f.write(f"{'Simulated_Annealing':<25} {sa_res['rows']:>12} {sa_res['time']:>10.4f}\n")
+            print(f"| {'':<25} | {'Simulated Annealing (simulated_annealing.py)':<45} | {sa_res['rows']:>12} | {sa_res['time']:>10.4f} |")
+            #f.write(f"{'Simulated_Annealing':<25} {sa_res['rows']:>12} {sa_res['time']:>10.4f}\n")
+            f.write(f"{' ':<10} {'Simulated_Annealing':<25} {sa_res['rows']:>12} {sa_res['time']:>10.4f}\n")
 
-            print("-" * 75)
+            print(line)
 
 if __name__ == '__main__':
     main()
