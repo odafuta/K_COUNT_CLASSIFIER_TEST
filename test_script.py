@@ -5,6 +5,19 @@ import subprocess
 import sys
 import os
 import time
+import concurrent.futures
+
+def run_with_timeout(timeout_seconds, func, *args, **kwargs):
+    """関数を timeout_seconds 秒以内に実行。間に合わなければ None を返す。"""
+    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(func, *args, **kwargs)
+        try:
+            result = future.result(timeout=timeout_seconds)
+            return result, False
+        except concurrent.futures.TimeoutError:
+            print(f"  -> タイムアウト：{timeout_seconds}秒以内に終了しませんでした。")
+            future.cancel()
+            return None, True
 
 # --- Step 1: Ensure all required script files are present ---
 required_files = ['adaptive_sampling.py', 'heuristic_greedy.py', 'simulated_annealing.py', 'testcase_generator.py']
@@ -63,6 +76,7 @@ def main():
     # A common seed for all algorithms for a fair comparison on a given test case
     common_seed = 42
     all_results = []
+    timeout_seconds = 30
 
     print("\n--- Starting Experiment ---")
 
@@ -72,23 +86,44 @@ def main():
 
         case_results = {"params": params}
 
-        # --- Run Adaptive Sampling (as.py) ---
+        # --- Adaptive Sampling ---
         print("Running Adaptive Sampling...")
-        as_result = generate_LVCA_adaptive_sampling(n, tau, k, seed=common_seed, verbose=False)
-        case_results['as'] = {'rows': as_result['num_rows'], 'time': as_result['time']}
-        print(f"  -> Done in {as_result['time']:.4f}s, Generated {as_result['num_rows']} rows.")
+        as_result, as_timeout = run_with_timeout(
+            timeout_seconds, generate_LVCA_adaptive_sampling,
+            n, tau, k, seed=common_seed, verbose=False
+        )
+        if as_timeout or as_result is None:
+            case_results['as'] = {'rows': 'TIMEOUT', 'time': float('inf')}
+            print("  -> タイムアウトにより中断")
+        else:
+            case_results['as'] = {'rows': as_result['num_rows'], 'time': as_result['time']}
+            print(f"  -> Done in {as_result['time']:.4f}s, Generated {as_result['num_rows']} rows.")
 
-        # --- Run Heuristic Greedy (hg.py) ---
+        # --- Heuristic Greedy ---
         print("Running Heuristic Greedy...")
-        hg_result = generate_binary_covering_array_heuristic_greedy(n, tau, k, seed=common_seed, verbose=False)
-        case_results['hg'] = {'rows': hg_result['num_rows'], 'time': hg_result['time']}
-        print(f"  -> Done in {hg_result['time']:.4f}s, Generated {hg_result['num_rows']} rows.")
+        hg_result, hg_timeout = run_with_timeout(
+            timeout_seconds, generate_binary_covering_array_heuristic_greedy,
+            n, tau, k, seed=common_seed, verbose=False
+        )
+        if hg_timeout or hg_result is None:
+            case_results['hg'] = {'rows': 'TIMEOUT', 'time': float('inf')}
+            print("  -> タイムアウトにより中断")
+        else:
+            case_results['hg'] = {'rows': hg_result['num_rows'], 'time': hg_result['time']}
+            print(f"  -> Done in {hg_result['time']:.4f}s, Generated {hg_result['num_rows']} rows.")
 
-        # --- Run Simulated Annealing (sa.py) ---
+        # --- Simulated Annealing ---
         print("Running Simulated Annealing...")
-        sa_result = lv_cit_sa(n, tau, k, seed=common_seed, verbose=False)
-        case_results['sa'] = {'rows': sa_result['num_rows'], 'time': sa_result['time']}
-        print(f"  -> Done in {sa_result['time']:.4f}s, Generated {sa_result['num_rows']} rows.")
+        sa_result, sa_timeout = run_with_timeout(
+            timeout_seconds, lv_cit_sa,
+            n, tau, k, seed=common_seed, verbose=False
+        )
+        if sa_timeout or sa_result is None:
+            case_results['sa'] = {'rows': 'TIMEOUT', 'time': float('inf')}
+            print("  -> タイムアウトにより中断")
+        else:
+            case_results['sa'] = {'rows': sa_result['num_rows'], 'time': sa_result['time']}
+            print(f"  -> Done in {sa_result['time']:.4f}s, Generated {sa_result['num_rows']} rows.")
 
         all_results.append(case_results)
 

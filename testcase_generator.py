@@ -5,7 +5,7 @@ test_cases = set()
 
 while len(test_cases) < 10:  # 必要なケース数だけ生成
     tau = random.randint(2, 3)
-    n = random.randint(2 * tau, 10)
+    n = random.randint(2 * tau, 20)
     if n - tau < tau:
         continue  # k の範囲が成立しない場合スキップ
     k = random.randint(tau, n - tau)
