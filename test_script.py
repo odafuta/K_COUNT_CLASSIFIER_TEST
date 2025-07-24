@@ -5,19 +5,87 @@ import subprocess
 import sys
 import os
 import time
-import concurrent.futures
+# Imports added for the new run_with_timeout function
+import pickle
+import base64
+import importlib
 
+
+# --- New run_with_timeout function using subprocess ---
 def run_with_timeout(timeout_seconds, func, *args, **kwargs):
-    """関数を timeout_seconds 秒以内に実行。間に合わなければ None を返す。"""
-    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(func, *args, **kwargs)
-        try:
-            result = future.result(timeout=timeout_seconds)
-            return result, False
-        except concurrent.futures.TimeoutError:
-            print(f"  -> タイムアウト：{timeout_seconds}秒以内に終了しませんでした。")
-            future.cancel()
-            return None, True
+    """
+    Executes a function in a separate process with a timeout using subprocess.
+
+    This method works by:
+    1.  Defining a helper script as a string (`runner_script`).
+    2.  Serializing the target function's module, name, and arguments using `pickle`.
+    3.  Executing the helper script with `subprocess.run`, passing the serialized data
+        via standard input.
+    4.  The helper script deserializes the data, imports the module, runs the function,
+        and prints the pickled result to its standard output.
+    5.  The parent process reads the stdout and deserializes the result.
+    6.  `subprocess.run`'s `timeout` argument handles killing the process if it
+        exceeds the time limit.
+    """
+    runner_script = """
+import sys
+import pickle
+import base64
+import importlib
+
+try:
+    # Read base64-encoded pickled data from stdin
+    encoded_data = sys.stdin.buffer.read()
+    pickled_data = base64.b64decode(encoded_data)
+    module_name, func_name, f_args, f_kwargs = pickle.loads(pickled_data)
+
+    # Import the module and get the function
+    module = importlib.import_module(module_name)
+    target_func = getattr(module, func_name)
+
+    # Run the function and get the result
+    result = target_func(*f_args, **f_kwargs)
+
+    # Pickle the result and write it to stdout as bytes
+    pickled_result = pickle.dumps(result)
+    sys.stdout.buffer.write(pickled_result)
+    sys.stdout.flush()
+
+except Exception as e:
+    # If anything goes wrong, write the error to stderr and exit
+    print(f"Subprocess error: {e}", file=sys.stderr)
+    sys.exit(1)
+"""
+
+    # Serialize the function's identity and its arguments
+    # func.__module__ gets the original module name (e.g., 'adaptive_sampling')
+    # func.__name__ gets the function name (e.g., 'generate_LVCA_adaptive_sampling')
+    data_to_pass = (func.__module__, func.__name__, args, kwargs)
+    pickled_data = pickle.dumps(data_to_pass)
+    encoded_data = base64.b64encode(pickled_data)
+
+    try:
+        # Execute the runner script in a new Python process
+        proc = subprocess.run(
+            [sys.executable, "-c", runner_script],
+            input=encoded_data,
+            capture_output=True,
+            timeout=timeout_seconds,
+        )
+        proc.check_returncode() # Raise an exception if the subprocess returned an error
+        
+        # If successful, deserialize the result from stdout
+        result = pickle.loads(proc.stdout)
+        return result, False # Return result, no timeout
+
+    except subprocess.TimeoutExpired:
+        print(f"  -> タイムアウト：{timeout_seconds}秒以内に終了しませんでした。")
+        return None, True # Return nothing, timeout occurred
+    
+    except subprocess.CalledProcessError as e:
+        # The subprocess exited with an error. Print its stderr for debugging.
+        print(f"  -> Subprocess failed. Error: {e.stderr.decode()}")
+        return None, True # Return nothing, an error occurred
 
 # --- Step 1: Ensure all required script files are present ---
 required_files = ['adaptive_sampling.py', 'heuristic_greedy.py', 'simulated_annealing.py', 'testcase_generator.py']
@@ -76,7 +144,7 @@ def main():
     # A common seed for all algorithms for a fair comparison on a given test case
     common_seed = 42
     all_results = []
-    timeout_seconds = 30
+    timeout_seconds = 600
 
     print("\n--- Starting Experiment ---")
 
@@ -94,7 +162,6 @@ def main():
         )
         if as_timeout or as_result is None:
             case_results['as'] = {'rows': 'TIMEOUT', 'time': float('inf')}
-            print("  -> タイムアウトにより中断")
         else:
             case_results['as'] = {'rows': as_result['num_rows'], 'time': as_result['time']}
             print(f"  -> Done in {as_result['time']:.4f}s, Generated {as_result['num_rows']} rows.")
@@ -107,7 +174,6 @@ def main():
         )
         if hg_timeout or hg_result is None:
             case_results['hg'] = {'rows': 'TIMEOUT', 'time': float('inf')}
-            print("  -> タイムアウトにより中断")
         else:
             case_results['hg'] = {'rows': hg_result['num_rows'], 'time': hg_result['time']}
             print(f"  -> Done in {hg_result['time']:.4f}s, Generated {hg_result['num_rows']} rows.")
@@ -120,7 +186,6 @@ def main():
         )
         if sa_timeout or sa_result is None:
             case_results['sa'] = {'rows': 'TIMEOUT', 'time': float('inf')}
-            print("  -> タイムアウトにより中断")
         else:
             case_results['sa'] = {'rows': sa_result['num_rows'], 'time': sa_result['time']}
             print(f"  -> Done in {sa_result['time']:.4f}s, Generated {sa_result['num_rows']} rows.")
