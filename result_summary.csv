@@ -160,4 +160,4 @@
            Simulated_Annealing            TIMEOUT        inf
 (30, 4, 9) Adaptive_Sampling              TIMEOUT        inf
            Heuristic_Greedy               TIMEOUT        inf
-           Simulated_Annealing            TIMEOUT        inf
+           Simulated_Annealing            TIMEOUT        10
