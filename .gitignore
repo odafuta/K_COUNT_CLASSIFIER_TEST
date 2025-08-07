@@ -1,7 +1,10 @@
-main.tex
+*.tex
+REPORT_FLOW.md
 SA_temporary1.py
 SA_temporary2.py
 Generating Locating Arrays via Simulated Annealing.wav
 locating-array.pdf
 lvca_bounds.py
 SA.py
+docs/
+not_used/

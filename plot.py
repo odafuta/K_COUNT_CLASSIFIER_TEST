@@ -3,17 +3,45 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
-def draw_figure(k,array_or_time,algorithm,dir):
-    plt.figure()
-    plt.title(f"{algorithm} n={prev_n} tau={prev_tau}")
-    plt.plot(k, array_or_time, linestyle='solid', marker='o')
-    plt.grid(True)
-    output_name = f"{algorithm}_{prev_n}_{prev_tau}.png"
+def draw_figure(data_dict, field, n, tau, dir):
+    """
+    3つのアルゴリズムの結果を1つのグラフにプロット
+    data_dict: {algorithm_name: (k_list, value_list)}
+    """
+    plt.figure(figsize=(10, 6))
+    plt.title(f"Algorithm Comparison (n={n}, tau={tau})")
+    
+    # 各アルゴリズムのデータをプロット
+    colors = ['blue', 'red', 'green']
+    markers = ['o', 's', '^']
+    
+    for i, (algo_name, (k_list, value_list)) in enumerate(data_dict.items()):
+        if k_list and value_list:  # データが存在する場合のみプロット
+            plt.plot(k_list, value_list, 
+                    linestyle='solid', 
+                    marker=markers[i], 
+                    color=colors[i],
+                    label=algo_name,
+                    linewidth=2,
+                    markersize=6)
+    
+    plt.xlabel('k')
+    if field == "array_size":
+        plt.ylabel('Array Size')
+    elif field == "time":
+        plt.ylabel('Runtime (seconds)')
+    
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    
+    # ファイル名を修正
+    output_name = f"comparison_{field}_{n}_{tau}.png"
     output_path = os.path.join(dir, output_name)
-
-    plt.savefig(output_path)
-    print(output_name + "に出力しました。")
-    array_or_time.clear()
+    
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close()  # メモリリークを防ぐ
+    print(f"{output_name}に出力しました。")
 
 input_file = "result_summary.csv"
 output_file = "output.csv"
@@ -70,20 +98,18 @@ with open(input_file, encoding="utf-8") as f:
         output_lines.append(out_line)
 
 field = ["array_size", "time"]
-algorithm = ["Adaptive_Sampling", "Heuristic_Greedy", "Simulated_Annealing"
-             ]
 
+# ディレクトリ構造を比較用に変更
 for f in field:
-    for a in algorithm:
-        make_dir_path = './fig/' + f + '/' + a
-
-        #作成しようとしているディレクトリが存在するかどうかを判定する
-        if os.path.isdir(make_dir_path):
-            #既にディレクトリが存在する場合は何もしない
-            pass
-        else:
-            #ディレクトリが存在しない場合のみ作成する
-            os.makedirs(make_dir_path)
+    make_dir_path = './fig/' + f
+    
+    #作成しようとしているディレクトリが存在するかどうかを判定する
+    if os.path.isdir(make_dir_path):
+        #既にディレクトリが存在する場合は何もしない
+        pass
+    else:
+        #ディレクトリが存在しない場合のみ作成する
+        os.makedirs(make_dir_path)
 
 # ファイル書き込み
 with open(output_file, "w", encoding="utf-8") as f_out:
@@ -99,42 +125,43 @@ time = input_csv[input_csv.keys()[5]]
 
 prev_n = int(n[0])
 prev_tau = int(tau[0])
-as_k = []
-hg_k = []
-sa_k = []
-as_array = []
-hg_array = []
-sa_array = []
-as_time = []
-hg_time = []
-sa_time = []
-result_array = [("Adaptive_Sampling",as_k,as_array), ("Heuristic_Greedy",hg_k,hg_array), ("Simulated_Annealing",sa_k,sa_array)]
-result_time = [("Adaptive_Sampling",as_k,as_time), ("Heuristic_Greedy",hg_k,hg_time), ("Simulated_Annealing",sa_k,sa_time)]
-for i in range(0, n.size, 1):
-    if (prev_tau != int(tau[i])) or (i == n.size-1):
-        for f in field:
-            if f == "array_size":
-                result = result_array
-            elif f == "time":
-                result = result_time
-            for algo_r, k_r, array_or_time in result:
-                dir = './fig/' + f + '/' + algo_r
-                draw_figure(k_r,array_or_time,algo_r,dir)
-        prev_n = int(n[i])
-        prev_tau = int(tau[i])
-        for algo_r, k_r, array_or_time in result_array:
-            k_r.clear()
 
+# データ構造を辞書形式に変更
+current_data = {
+    "array_size": {
+        "Adaptive_Sampling": ([], []),
+        "Heuristic_Greedy": ([], []),
+        "Simulated_Annealing": ([], [])
+    },
+    "time": {
+        "Adaptive_Sampling": ([], []),
+        "Heuristic_Greedy": ([], []),
+        "Simulated_Annealing": ([], [])
+    }
+}
+
+for i in range(0, n.size, 1):
+    if (prev_n != int(n[i]) or prev_tau != int(tau[i])) or (i == n.size-1):
+        # グラフを生成
+        for f in field:
+            dir = './fig/' + f
+            draw_figure(current_data[f], f, prev_n, prev_tau, dir)
+        
+        # 新しいn, tauの値を設定
+        if i < n.size:
+            prev_n = int(n[i])
+            prev_tau = int(tau[i])
+        
+        # データをクリア
+        for f in field:
+            for algo_name in current_data[f]:
+                current_data[f][algo_name] = ([], [])
+
+    # データを追加（TIMEOUTでない場合のみ）
     if array_size[i] != "TIMEOUT":
-        if algo[i] == "Adaptive_Sampling":
-            as_k.append(int(k[i]))
-            as_array.append(int(array_size[i]))
-            as_time.append(float(time[i]))
-        elif algo[i] == "Heuristic_Greedy":
-            hg_k.append(int(k[i]))
-            hg_array.append(int(array_size[i]))
-            hg_time.append(float(time[i]))
-        elif algo[i] == "Simulated_Annealing":
-            sa_k.append(int(k[i]))
-            sa_array.append(int(array_size[i]))
-            sa_time.append(float(time[i]))
+        algo_name = algo[i]
+        if algo_name in current_data["array_size"]:
+            current_data["array_size"][algo_name][0].append(int(k[i]))
+            current_data["array_size"][algo_name][1].append(int(array_size[i]))
+            current_data["time"][algo_name][0].append(int(k[i]))
+            current_data["time"][algo_name][1].append(float(time[i]))
