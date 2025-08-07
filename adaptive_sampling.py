@@ -65,7 +65,7 @@ def generate_LVCA_adaptive_sampling(n: int, tau: int, k: int, seed: int = 0, ver
     while uncovered:
         iteration += 1
         row = [0] * n
-        c = rng.randint(1, k)
+        c =  k
 
         # ラベルのソート
         label_counts = [sum(r[i] for r in A) for i in range(n)]
