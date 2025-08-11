@@ -73,7 +73,7 @@ def lv_cit_sa(
     T0: float = 10.0,
     cooling: float = 0.995,
     seed: int = 0,
-    verbose: bool = False
+    verbose: bool = True
 ) -> Dict[str, Any]:
     # ★変更: LVCA の制約チェック
     if not (tau <= k <= n-tau+1):
@@ -93,6 +93,9 @@ def lv_cit_sa(
     
     max_possible_rows = math.comb(n, k)
     if init_rows_count > max_possible_rows:
+        if verbose:
+            print(f"警告: 初期解の行数({init_rows_count})が最大可能行数({max_possible_rows})を超えています。")
+            print(f"最大可能行数({max_possible_rows})に調整します。")
         init_rows_count = max_possible_rows
     
     # ★変更: 試行回数は上限付きで十分大きく確保（速度と復帰力のバランス）
@@ -103,6 +106,12 @@ def lv_cit_sa(
 
     # ★変更: tau列組の事前計算（各行の被覆計算を高速化）
     tau_index_combos: List[Tuple[int, ...]] = list(itertools.combinations(range(n), tau))
+
+    if verbose:
+        print(f"n={n}, tau={tau}, k={k}")
+        print(f"組み合わせ総数: {U_size}")
+        print(f"理論的下界: {lower_bound_value}")
+        print(f"初期解の行数: {init_rows_count}\n")
 
     curr_rows = generate_unique_rows(n, k, init_rows_count, rng)
     best_rows: List[LabelVec] = []
@@ -118,13 +127,21 @@ def lv_cit_sa(
             is_fully_covered = (covered_size == U_size)
 
             if not is_fully_covered:
+                if verbose:
+                    print(f"{len(curr_rows)}行でのカバー率が100%ではありません。{recovery_steps}ステップ以内で復帰を試みます...")
+
                 T = T0
                 recovered = False
 
                 # ★変更: 現在の行集合（重複防止）を一度作って受理時のみ更新
                 current_rows_set = {tuple(r) for r in curr_rows}
 
-                for _ in range(1, recovery_steps + 1):
+                for step in range(1, recovery_steps + 1):
+                    if step % 1000 == 0 and verbose:  # ★変更: 進捗ログ
+                        print(step)
+                        print(f"covered_size: {covered_size}")
+                        print(f"U_size: {U_size}")
+
                     T *= cooling
                     if T < 1e-5:  # ★変更: 完全凍結を避ける温度下限
                         T = 1e-5
@@ -189,14 +206,24 @@ def lv_cit_sa(
                 if recovered:
                     is_fully_covered = True
                 else:
+                    if verbose:
+                        print(f"{recovery_steps}回の試行でも100%被覆に復帰できませんでした。")
                     break
 
             if is_fully_covered:
+                if verbose:
+                    print(f"カバー率100%達成！ (行数: {len(curr_rows)})")
+
                 best_rows = [r[:] for r in curr_rows]
                 if len(best_rows) == lower_bound_value:
                     reached_lower_bound = True
+                    if verbose:
+                        print("理論的下界に到達したため、探索を終了します。")
                     break
 
+                if verbose:
+                    print("1行削減して、再度100%カバーを目指します...\n")
+                # ★変更: 改善前と同じくランダムに1行削除（貪欲法は導入しない）
                 curr_rows.pop(rng.randrange(len(curr_rows)))
 
     except Exception as e:
@@ -223,7 +250,9 @@ def lv_cit_sa(
     except Exception as e:
         print(f"エラーが発生しました: {str(e)}")
 
-
+    print(f"len(final_covered): {len(final_covered)}")
+    print(f"U_size: {U_size}")
+    
     return {
         "n": n,
         "tau": tau,
@@ -236,7 +265,6 @@ def lv_cit_sa(
         "time": total_time,
         "covering_array": best_rows
     }
-
 # ----------------- コマンドライン実行用 ----------------------------------------
 if __name__ == "__main__":
     if len(sys.argv) < 4:

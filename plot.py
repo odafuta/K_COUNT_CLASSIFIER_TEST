@@ -158,7 +158,7 @@ for i in range(0, n.size, 1):
                 current_data[f][algo_name] = ([], [])
 
     # データを追加（TIMEOUTでない場合のみ）
-    if array_size[i] != "TIMEOUT":
+    if array_size[i] not in ["TIMEOUT", "NOT_COVERED"]:
         algo_name = algo[i]
         if algo_name in current_data["array_size"]:
             current_data["array_size"][algo_name][0].append(int(k[i]))

@@ -15,8 +15,9 @@ test_cases = set()
 for n in range(10,40,10):
     for tau in range(2,5,1):
         for k in range(tau,tau+6,1):
-            case = (n,tau,k)
-            test_cases.add(case)
+            if tau <= k <= n-tau+1:
+                case = (n,tau,k)
+                test_cases.add(case)
 
 sorted_cases = sorted(list(test_cases), key=lambda x: (x[0], x[1], x[2]))
 
