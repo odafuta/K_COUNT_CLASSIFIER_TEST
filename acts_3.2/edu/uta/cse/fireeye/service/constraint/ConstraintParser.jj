@@ -1,0 +1,900 @@
+options {
+	static = false;
+}
+
+PARSER_BEGIN(ConstraintParser)
+
+package edu.uta.cse.fireeye.service.constraint;
+import edu.uta.cse.fireeye.common.Parameter;
+import edu.uta.cse.fireeye.util.FireeyeConstants;
+
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.io.StringReader;
+
+public class ConstraintParser {
+
+   // store parameter values
+   private HashMap params;
+
+   // store used string values of enum parameter @FengDuan
+   private HashMap<String, ArrayList<String>> enumPVMap = new HashMap<String, ArrayList<String>>();
+      
+   // a list of parameters that appear in the constraint
+   private ArrayList<Parameter> usedParams;
+
+   public ConstraintParser (String constraint) {
+      this(new StringReader (constraint));
+      params = new HashMap ();
+      usedParams = new ArrayList<Parameter> ();
+   }
+   
+   public ConstraintParser (String constraint,HashMap paramsMap) {
+      this(new StringReader (constraint));
+      params = paramsMap;
+      usedParams = new ArrayList<Parameter> ();
+   }
+ 
+   // add a param/value pair
+   public void addParam (String pname, Object pvalue) {
+      params.put(pname, pvalue);
+   } 
+	
+	// get the list of used parameters
+	public ArrayList<Parameter> getUsedParamList () {
+		return usedParams;
+	}
+	
+   public Object lookup (String pname) {
+     return params.get(pname);
+   }
+
+   public void parse () throws ParseException {
+        Constraint (true);
+   }
+
+   public boolean evaluate () {
+      boolean rval = true;
+      try {
+        rval = ((Boolean) Constraint (false)).booleanValue();
+      }
+      catch (Exception ex) {
+        System.out.println("Parser Exception: " + ex);
+        rval = false;
+      }      
+
+      return rval;
+   }
+
+  /**Check enum value in constraint with its corresponding parameter domain. @FengDuan
+   * Warn the user if they attempt to add a constraint specifying a value
+   * that doesn't exist in the enum parameter value list.
+   *
+   * Enum values in parameters and constraints should be case insensitive.
+   *
+   * For negative testing, invalid values of enum parameter should also be added into list.
+   *
+   * @param tempTI
+   * @param rvalTI
+   * @throws ParseException 
+ */
+  private void checkEnumValueWithParam(TypeInfo tempTI, TypeInfo rvalTI, Token t) throws ParseException  {    if (tempTI.getType() == FireeyeConstants.TYPE_STRING)    { // if temp value type is a String (enum)
+      String lname = rvalTI.getText();      Parameter lparam = (Parameter) lookup(lname);      String rname = tempTI.getText();      Parameter rparam = (Parameter) lookup(rname);      if (lparam != null && rparam == null)      { // if left value is a parameter name in list, and right value is not a parameter
+        ArrayList < String > pvalues = new ArrayList < String >();
+        pvalues.addAll(lparam.getValues());
+
+		// invalid values of enum parameter should also be added into list		pvalues.addAll(lparam.getInvalidValues());
+                String value = rname;        value = value.substring(1, value.length() - 1); // constraint value trim quotes ("xxxx")
+        boolean found = false;        for (int i = 0; i < pvalues.size(); i++)        {          String pvalue = pvalues.get(i);          if (value.equalsIgnoreCase(pvalue))          { // constraint value equals to parameter value ignoring case
+            found = true;            break;          }        }        if (!found)         throw new ParseException(lname         + " domain does NOT contain this enum value: " + rname         + "\n" + "   in expression: " + lname + " " + t.image + " " + rname);        else        { // store used string values of enum parameter
+          ArrayList < String > temp = new ArrayList < String > ();          if (enumPVMap.containsKey(lname))          {            temp = enumPVMap.get(lname);            enumPVMap.remove(lname);          }          temp.add(value);          enumPVMap.put(lname, temp);        }      }      else if (lparam == null && rparam != null)      { // if left value is not a parameter, but right value is a parameter
+        ArrayList < String > pvalues = new ArrayList < String >();
+        pvalues.addAll(rparam.getValues());
+
+		// invalid values of enum parameter should also be added into list		pvalues.addAll(rparam.getInvalidValues());
+                String value = lname;        value = value.substring(1, value.length() - 1); // constraint value trim quotes ("xxxx")
+        boolean found = false;        for (int i = 0; i < pvalues.size(); i++)        {          String pvalue = pvalues.get(i);          if (value.equalsIgnoreCase(pvalue))          { // constraint value equals to parameter value ignoring case
+            found = true;            break;          }        }        if (!found)         throw new ParseException(rname         + " domain does NOT contain this enum value: " + lname         + "\n" + "   in expression: " + lname + " " + t.image + " " + rname);        else        { // store used string values of enum parameter
+          ArrayList < String > temp = new ArrayList < String > ();          if (enumPVMap.containsKey(rname))          {            temp = enumPVMap.get(rname);            enumPVMap.remove(rname);          }          temp.add(value);          enumPVMap.put(rname, temp);        }      }    }  }  public HashMap < String, ArrayList < String >> getEnumPVMap()  {    return enumPVMap;  }
+   
+
+   public static void main (String args[]) {
+      ConstraintParser parser = new ConstraintParser (args[0]);
+      //parser.addParam ("x", Boolean.TRUE);
+      //parser.addParam ("y", new Integer(10));
+      //parser.addParam ("z", "test");
+      //System.out.println(parser.evaluate());
+      //System.out.println(parser.parse());
+   }
+}
+
+PARSER_END(ConstraintParser)
+
+SKIP:
+{
+   " "
+   | "\t"
+   | "\n"
+   | "\r"
+}
+
+TOKEN: 
+{
+   < INTEGER_LITERAL: ["0"-"9"](["0"-"9"])* >
+|
+   < STRING_LITERAL: 
+                "\"" 
+		(~["\"","\\","\n","\r"])*
+		"\""
+   >
+|  
+   < TRUE: "true" | "TRUE" | "True" >
+|
+   < FALSE: "false" | "FALSE" | "False" >
+|
+   < IDENTIFIER: <LETTER> (<LETTER> | <DIGIT>)* >
+| 
+   < #LETTER: ["A"-"Z", "a"-"z", "_"] >
+|
+   < #DIGIT: ["0"-"9"] >
+|
+   < EQ : "=" | "==" >
+|	
+   < GT:   ">"  >
+|	
+   < LT:   "<"  >
+|	
+   < LE:   "<=" >
+|	
+   < GE:   ">=" >
+|	
+   < NE:   "!=" >
+|	
+   < AND:  "&&" >
+|	
+   < OR:   "||" >
+|	
+   < NOT:  "!" | "~">
+|
+   < IM:   "=>" >
+|	
+   < PLUS: "+"  >
+|	
+   < MINUS: "-"  >
+|	
+   < MUL:  "*"  >
+|	
+   < DIV:  "/"  >
+|	
+   < MOD:  "%"  >
+|
+   < OPENPAR: "(" >
+|  
+   < CLOSEPAR: ")" >
+}
+
+Object Constraint (boolean parse_only) :
+{
+   Object rval;
+}
+{
+   (rval = LogicalExpression (parse_only)) {
+     if (parse_only) {
+     	TypeInfo rvalTI = (TypeInfo) rval;
+     	if (rvalTI.getType() != FireeyeConstants.TYPE_BOOL) {
+     	   throw new ParseException("Boolean expression expected:\n" + rvalTI.getText());
+     	}
+     }
+     return rval;
+   }
+}
+
+Object LogicalExpression (boolean parse_only) :
+{
+   Object rval;
+}
+{
+   (rval = ImplicativeExpression (parse_only)) {
+   	 return rval;
+   }
+}
+
+Object ImplicativeExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval;
+   Object temp;
+   TypeInfo rvalTI = new TypeInfo();
+   TypeInfo tempTI = new TypeInfo();
+}
+{
+   (rval = OrExpression (parse_only))
+   ((t = <IM>) (temp = OrExpression (parse_only)) {
+		if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+            
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+        
+            if(rvalTI.getType() != FireeyeConstants.TYPE_BOOL) {
+               throw new ParseException("Boolean type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_BOOL) {
+               throw new ParseException("Boolean type expected: " + tempTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());           
+            }
+            rval = rv;
+      } else {
+        rval = new Boolean (
+                  !((Boolean) rval).booleanValue () 
+                   || ((Boolean) temp).booleanValue ());
+      }
+    }
+   ) * 
+   {
+     return rval;
+   }
+}
+
+Object OrExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval;
+   Object temp;
+   TypeInfo rvalTI = new TypeInfo();
+   TypeInfo tempTI = new TypeInfo();
+}
+{
+   (rval = AndExpression (parse_only)) 
+   ((t = <OR>) (temp = AndExpression (parse_only)) {
+       	if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());        
+            if(rvalTI.getType() != FireeyeConstants.TYPE_BOOL) {
+               throw new ParseException("Boolean type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_BOOL) {
+                throw new ParseException("Boolean type expected: " + tempTI.getText()
+                                         + "\n" + "   in expression: " + rv.getText());           
+            }
+            rval = rv;
+ 	    } else {
+           rval = new Boolean (
+               ((Boolean) rval).booleanValue() 
+               || ((Boolean) temp).booleanValue());
+        }
+   }) *
+   {
+      return rval;
+   }
+}
+
+Object AndExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval;
+   Object temp;
+   TypeInfo rvalTI = null;
+   TypeInfo tempTI = null;
+}
+{
+   (rval = RelationalExpression (parse_only))
+   ( (t = <AND>) (temp = RelationalExpression (parse_only)) {
+       	if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+            
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+        
+            if(rvalTI.getType() != FireeyeConstants.TYPE_BOOL) {
+               throw new ParseException("Boolean type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_BOOL) {
+                throw new ParseException("Boolean type expected: " + tempTI.getText()
+                                         + "\n" + "   in expression: " + rv.getText());           
+            }
+            rval = rv;
+	     } else {
+             rval = new Boolean(
+                   ((Boolean) rval).booleanValue () 
+                   && ((Boolean) temp).booleanValue ());
+         }
+       }
+   ) *
+   {
+       return rval;
+   }
+}
+
+Object RelationalExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval;
+   Object temp;
+   TypeInfo rvalTI = null;
+   TypeInfo tempTI = null;
+}
+{
+   (rval = AdditiveExpression (parse_only))
+   (
+     ( (t=<LT>) (temp = AdditiveExpression (parse_only)) ) {
+ 	    if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+        
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+            
+            if(rvalTI.getType() != FireeyeConstants.TYPE_INT
+               && rvalTI.getType () != FireeyeConstants.TYPE_STRING) {
+               throw new ParseException("Integer or String type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_INT
+            	    && tempTI.getType() != FireeyeConstants.TYPE_STRING) {
+                throw new ParseException("Integer or String type expected: " + tempTI.getText()
+                                         + "\n" + "   in expression: " + rv.getText());           
+            }
+            else if (tempTI.getType () != rvalTI.getType ()) {
+            	throw new ParseException("Type mismatch: " + rvalTI.getText() 
+            	                           + " " + t.image + " " + tempTI.getText());
+            }
+            else{
+            	
+            	checkEnumValueWithParam(tempTI, rvalTI, t);
+            	
+            }
+            rval = rv;
+        } else {
+          if (temp instanceof Integer) {
+            if(((Integer) rval).intValue() < ((Integer) temp).intValue ()) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+          }
+          else if (temp instanceof String) {
+            int tmp = ((String) rval).compareTo ((String) temp);
+            if (tmp < 0) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+          }
+        }
+     }
+     |
+     ( (t=<GT>) (temp = AdditiveExpression (parse_only)) ) {
+        if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+            
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+        
+            if(rvalTI.getType() != FireeyeConstants.TYPE_INT
+               && rvalTI.getType () != FireeyeConstants.TYPE_STRING) {
+               throw new ParseException("Integer or String type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_INT
+            	    && tempTI.getType() != FireeyeConstants.TYPE_STRING) {
+                throw new ParseException("Integer or String type expected: " + tempTI.getText()
+                                         + "\n" + "   in expression: " + rv.getText());           
+            }
+            else if (tempTI.getType () != rvalTI.getType ()) {
+            	throw new ParseException("Type mismatch: " + rvalTI.getText() 
+            	                           + " " + t.image + " " + tempTI.getText());
+            }
+            else{
+            	
+            	checkEnumValueWithParam(tempTI, rvalTI, t);
+            	
+            }
+            rval = rv;
+         } else {
+           if (temp instanceof Integer) {
+             if(((Integer) rval).intValue() > ((Integer) temp).intValue()) {
+               rval = Boolean.TRUE;
+             } else {
+               rval = Boolean.FALSE;
+             }
+           }
+           else if (temp instanceof String) {
+             int tmp = ((String) rval).compareTo ((String) temp);
+             if (tmp > 0) {
+               rval = Boolean.TRUE;
+             }
+             else {
+               rval = Boolean.FALSE;
+             }
+           }
+        }
+     }
+     |
+     ( (t=<LE>) (temp = AdditiveExpression (parse_only)) ) {
+        if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+            
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());            
+        
+            if(rvalTI.getType() != FireeyeConstants.TYPE_INT
+               && rvalTI.getType () != FireeyeConstants.TYPE_STRING) {
+               throw new ParseException("Integer or String type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_INT
+            	    && tempTI.getType() != FireeyeConstants.TYPE_STRING) {
+                throw new ParseException("Integer or String type expected: " + tempTI.getText()
+                                         + "\n" + "   in expression: " + rv.getText());           
+            }
+            else if (tempTI.getType () != rvalTI.getType ()) {
+            	throw new ParseException("Type mismatch: " + rvalTI.getText() 
+            	                           + " " + t.image + " " + tempTI.getText());
+            }
+            else{
+            	
+            	checkEnumValueWithParam(tempTI, rvalTI, t);
+            	
+            }
+            rval = rv;
+        } else {
+          if (temp instanceof Integer) {
+            if(((Integer) rval).intValue() <= ((Integer) temp).intValue()) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+          }
+          else if (temp instanceof String) {
+            int tmp = ((String) rval).compareTo ((String) temp);
+            if (tmp <= 0) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+          }
+       }
+     }
+     |
+     ( (t=<GE>) (temp = AdditiveExpression (parse_only)) ) {
+        if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+
+            if(rvalTI.getType() != FireeyeConstants.TYPE_INT
+               && rvalTI.getType () != FireeyeConstants.TYPE_STRING) {
+               throw new ParseException("Integer or String type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_INT
+            	    && tempTI.getType() != FireeyeConstants.TYPE_STRING) {
+                throw new ParseException("Integer or String type expected: " + tempTI.getText()
+                                         + "\n" + "   in expression: " + rv.getText());           
+            }
+            else if (tempTI.getType () != rvalTI.getType ()) {
+            	throw new ParseException("Type mismatch: " + rvalTI.getText() 
+            	                           + " " + t.image + " " + tempTI.getText());
+            }
+            else{
+            	
+            	checkEnumValueWithParam(tempTI, rvalTI, t);
+            	
+            }
+            rval = rv;
+        } else {
+           if (temp instanceof Integer) {
+             if(((Integer) rval).intValue() >= ((Integer) temp).intValue()) {
+               rval = Boolean.TRUE;
+             }
+             else {
+               rval = Boolean.FALSE;
+             }
+           }
+           else if (temp instanceof String) {
+             int tmp = ((String) rval).compareTo ((String) temp);
+             if (tmp >= 0) {
+               rval = Boolean.TRUE;
+             }
+             else {
+               rval = Boolean.FALSE;
+             }
+           }
+        }
+     }
+     |
+     ( (t=<EQ>) (temp = AdditiveExpression (parse_only)) ) {     
+       if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;           
+        
+            if(rvalTI.getType() != tempTI.getType()) {
+        	    throw new ParseException ("Type mismatch: " 
+        	    	+ rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+            } else  {
+              	
+            	checkEnumValueWithParam(tempTI, rvalTI, t);
+            	
+                TypeInfo ti = new TypeInfo();
+                ti.setType(FireeyeConstants.TYPE_BOOL);
+                ti.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+                rval = ti;;
+           }
+        } else {
+          if (temp instanceof Integer) {
+             if(((Integer) rval).intValue() == ((Integer) temp).intValue()) {
+                rval = Boolean.TRUE;
+             }
+             else {
+               rval = Boolean.FALSE;
+             }
+          }
+          else if (temp instanceof String) {
+             int tmp = ((String) rval).compareTo ((String) temp);
+             if (tmp == 0) {
+               rval = Boolean.TRUE;
+             }
+             else {
+               rval = Boolean.FALSE;
+             }
+          }
+          else if (temp instanceof Boolean) {
+             if(((Boolean) rval).equals(temp)) {
+               rval = Boolean.TRUE;
+             }
+             else {
+               rval = Boolean.FALSE;
+             }
+          } 
+       }
+     }
+     |
+     ( (t=<NE>) (temp = AdditiveExpression (parse_only)) ) {
+       if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;           
+
+            TypeInfo ti = new TypeInfo();
+            ti.setType(FireeyeConstants.TYPE_BOOL);
+            ti.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+        
+            if(rvalTI.getType() != tempTI.getType()) {
+        	    throw new ParseException ("Type mismatch: " 
+        	    	+ rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+            }
+            else{
+            	
+            	checkEnumValueWithParam(tempTI, rvalTI, t);
+            	
+            }
+            rval = ti;;
+        } else {
+            if (temp instanceof Integer) {
+              if(((Integer) rval).intValue() != ((Integer) temp).intValue()) {
+                rval = Boolean.TRUE;
+              }
+              else {
+                rval = Boolean.FALSE;
+              }
+            }
+            else if (temp instanceof String) {
+              int tmp = ((String) rval).compareTo ((String) temp);
+              if (tmp != 0) {
+                rval = Boolean.TRUE;
+              }
+              else {
+                rval = Boolean.FALSE;
+              }
+            }
+            else if (temp instanceof Boolean) {
+              if(!((Boolean) rval).equals(temp)) {
+                rval = Boolean.TRUE;
+              }
+              else {
+                rval = Boolean.FALSE;
+              }
+            }
+       } 
+     }
+   )* 
+   {
+     return rval;
+   }
+}
+
+Object AdditiveExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval = null;
+   Object temp;
+   TypeInfo rvalTI = null;
+   TypeInfo tempTI = null;
+}
+{
+   (rval = MultiplicativeExpression (parse_only)) (
+      ( (t=<PLUS>) (temp = MultiplicativeExpression (parse_only)) ) {
+        if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+            
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_INT);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+        
+            if(rvalTI.getType() != FireeyeConstants.TYPE_INT) {
+               throw new ParseException("Integer type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_INT) {
+                throw new ParseException("Integer type expected: " + tempTI.getText()
+                                         + "\n" + "   in expression: " + rv.getText());           
+            }
+            rval = rv;
+        } else { 
+            rval = new Integer(((Integer) rval).intValue() + ((Integer) temp).intValue ());
+        }
+      }
+      |
+      ( (t=<MINUS>) (temp = MultiplicativeExpression (parse_only)) ) {
+        if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_INT);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+        
+            if(rvalTI.getType() != FireeyeConstants.TYPE_INT) {
+               throw new ParseException("Integer type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_INT) {
+                throw new ParseException("Integer type expected: " + tempTI.getText()
+                                         + "\n" + "   in expression: " + rv.getText());           
+            }
+            rval = rv;
+         } else {
+            rval = new Integer(((Integer) rval).intValue() - ((Integer) temp).intValue ());
+         }
+      }
+   )*
+   {
+      return rval;
+   }
+}
+
+Object MultiplicativeExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval = null;
+   Object temp;
+   TypeInfo rvalTI = null;
+   TypeInfo tempTI = null;
+}
+{
+   (rval = UnaryExpression (parse_only)) 
+   (
+      ((t=<MUL>) (temp = UnaryExpression (parse_only))) {
+      	if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+        
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_INT);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+            
+            if(rvalTI.getType() != FireeyeConstants.TYPE_INT) {
+               throw new ParseException("Integer type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_INT) {
+                throw new ParseException("Integer type expected: " + tempTI.getText()
+                                         + "\n" + "   in expression: " + rv.getText());           
+            }
+            rval = rv;
+	    } else {
+         	rval = new Integer(((Integer) rval).intValue() * ((Integer) temp).intValue ());
+      	}
+      }
+      |
+      ((t=<DIV>) (temp = UnaryExpression (parse_only) )) {
+        if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+ 
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_INT);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+        
+            if(rvalTI.getType() != FireeyeConstants.TYPE_INT) {
+               throw new ParseException("Integer type expected: " + rvalTI.getText()
+                                        + "\n" + "   in expression: " + rv.getText());
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_INT) {
+               throw new ParseException("Integer type expected: " + tempTI.getText()
+                						+ "\n" + "   in expression: " + rv.getText());           
+            }
+            rval = rv;
+	    } else {        
+            rval = new Integer(((Integer) rval).intValue() / ((Integer) temp).intValue ());
+        }
+      }
+      |
+      ((t=<MOD>) (temp = UnaryExpression (parse_only) )) {
+         if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+        
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_INT);
+            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+        
+            if(rvalTI.getType() != FireeyeConstants.TYPE_INT) {
+               throw new ParseException("Integer type expected: " + rvalTI.getText()
+               							 + "\n" + "  in expression: " + rv.getText());
+               							 
+            }
+            else if(tempTI.getType() != FireeyeConstants.TYPE_INT) {
+               throw new ParseException("Integer type expected: " + tempTI.getText()
+                                         + "\n" + "   in expression: " + rv.getText());           
+            }
+            rval = rv;
+          } else {
+            rval = new Integer(((Integer) rval).intValue() % ((Integer) temp).intValue ());
+         }
+      }
+   )*
+   { return rval; }
+}
+
+Object UnaryExpression (boolean parse_only) :
+{
+   Token t = null;
+   Token tt = null;
+   Object temp;
+   Object rval = null;
+}
+{	
+    ((t=<INTEGER_LITERAL>) {
+      if(parse_only) {
+    	TypeInfo rv = new TypeInfo();
+    	rv.setType(FireeyeConstants.TYPE_INT);
+    	rv.setText(t.image);
+    	rval = rv;    	
+      } else {
+        int val = Integer.parseInt (t.image);
+        rval = new Integer (val);
+      }
+    }
+    |
+    (t=<STRING_LITERAL>) {
+       if(parse_only) {
+	      TypeInfo rv = new TypeInfo();
+	      rv.setType(FireeyeConstants.TYPE_STRING);
+	      rv.setText(t.image);
+	      rval = rv;
+		} else {
+          // strip the quotes
+          rval = t.image.substring(1, t.image.length()-1).trim();
+       }
+    }
+    |
+    (t=<TRUE>) {
+      if(parse_only){
+    	 TypeInfo rv = new TypeInfo();
+         rv.setType(FireeyeConstants.TYPE_BOOL);
+         rv.setText(t.image);
+         rval = rv;
+      } else {
+         rval = Boolean.TRUE;
+      }
+    }
+    |
+    (t=<FALSE>) {
+      if(parse_only){
+    	 TypeInfo rv = new TypeInfo();
+         rv.setType(FireeyeConstants.TYPE_BOOL);
+         rv.setText(t.image);
+         rval = rv;
+      } else {
+         rval = Boolean.FALSE;
+      }
+    }
+    |
+    (t=<IDENTIFIER>) {    
+      if(parse_only){
+	     Parameter param = (Parameter) lookup(t.image);
+	     if (param == null) {
+	        throw new ParseException("Unrecognized parameter: " + t.image
+	        		   					+ "\nIf this is a param value (i.e., not a param name), it needs to be quoted.");
+	     } else {	
+	        // TODO:Enum needs to be converted to string.  
+	        TypeInfo rv = new TypeInfo();
+	        rv.setType (param.getParamType ());
+	        rv.setText (t.image);
+	        rval = rv;
+	        
+	        // add this valid parameter into usedParam list
+	        usedParams.add (param);	        
+	     }	            
+	  } else {
+	    // look up the value of a variable
+	    rval = lookup (t.image);
+		if (rval == null) {
+		   throw new ParseException ("Unrecognized parameter: " + t.image 
+		   								+ "\nIf this is a param value (i.e., not a param name), it needs to be quoted.");
+	    }
+	  }
+    }
+    | (t=<NOT>) (temp = UnaryExpression (parse_only)) {        		 
+    	if(parse_only) {
+    	  TypeInfo ti = (TypeInfo) temp;
+    	  if (ti.getType() != FireeyeConstants.TYPE_BOOL) {
+    	  	throw new ParseException ("Boolean type expected: " + ti.getText()
+    	  	                          + "\n" + "   in expression: " + t.image + " " + ti.getText());
+    	  } 
+      	  TypeInfo rv = new TypeInfo();
+          rv.setType(FireeyeConstants.TYPE_BOOL);
+          rv.setText(t.image + " " + ti.getText());
+          rval = rv;
+        } else {
+	      rval = new Boolean(
+	               !((Boolean) temp).booleanValue ()
+	             );
+	    }
+    }
+  	| (t=<MINUS>) (temp = UnaryExpression (parse_only)) {      //Unary Minus support @FengDuan
+    	if(parse_only) {
+    	  TypeInfo ti = (TypeInfo) temp;
+    	  if (ti.getType() != FireeyeConstants.TYPE_INT) {
+    	  	throw new ParseException ("Integer type expected: " + ti.getText()
+    	  	                          + "\n" + "   in expression: " + t.image + " " + ti.getText());
+    	  } 
+      	  TypeInfo rv = new TypeInfo();
+          rv.setType(FireeyeConstants.TYPE_INT);
+          rv.setText(t.image + " " + ti.getText());
+          rval = rv;
+        } else {
+          int val = Integer.parseInt (t.image);
+	      rval = new Integer(-val);
+	    }
+    }
+    | (t=<OPENPAR>) (rval = LogicalExpression (parse_only)) (tt=<CLOSEPAR>) { 
+       if(parse_only) {
+         TypeInfo rvalTI = (TypeInfo) rval;
+         TypeInfo ti = new TypeInfo ();
+         ti.setType (rvalTI.getType());
+         ti.setText (t.image + rvalTI.getText() + tt.image);
+         rval = ti;
+       }
+    })
+    {
+       return rval; 
+    }
+
+
+}

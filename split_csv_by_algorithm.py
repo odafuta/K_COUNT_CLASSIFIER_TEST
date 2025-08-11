@@ -3,7 +3,7 @@ import numpy as np
 
 def split_csv_by_algorithm(input_file='output.csv'):
     """
-    CSVファイルをアルゴリズムごとに分けて3つの正規化されたCSVファイルに変換する
+    CSVファイルをアルゴリズムごとに分けて4つの正規化されたCSVファイルに変換する
     
     Args:
         input_file (str): 入力CSVファイルのパス
@@ -12,8 +12,8 @@ def split_csv_by_algorithm(input_file='output.csv'):
     # CSVファイルを読み込み
     df = pd.read_csv(input_file)
     
-    # アルゴリズムのリスト
-    algorithms = ['Adaptive_Sampling', 'Heuristic_Greedy', 'Simulated_Annealing']
+    # アルゴリズムのリスト（ACTSを追加）
+    algorithms = ['Adaptive_Sampling', 'Heuristic_Greedy', 'Simulated_Annealing', 'ACTS']
     
     # 各アルゴリズムごとにデータを分離
     for algorithm in algorithms:
@@ -42,7 +42,7 @@ def create_summary_statistics():
     各アルゴリズムの結果を読み込んで統計情報を表示
     """
     
-    algorithms = ['Adaptive_Sampling', 'Heuristic_Greedy', 'Simulated_Annealing']
+    algorithms = ['Adaptive_Sampling', 'Heuristic_Greedy', 'Simulated_Annealing', 'ACTS']
     
     for algorithm in algorithms:
         filename = f'{algorithm.lower().replace("_", "_")}_results.csv'
@@ -87,3 +87,4 @@ if __name__ == "__main__":
     print("- adaptive_sampling_results.csv")
     print("- heuristic_greedy_results.csv") 
     print("- simulated_annealing_results.csv")
+    print("- acts_results.csv")

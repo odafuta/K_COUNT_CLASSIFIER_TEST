@@ -5,22 +5,24 @@ import os
 
 def draw_figure(data_dict, field, n, tau, dir):
     """
-    3つのアルゴリズムの結果を1つのグラフにプロット
+    4つのアルゴリズムの結果を1つのグラフにプロット
     data_dict: {algorithm_name: (k_list, value_list)}
     """
     plt.figure(figsize=(10, 6))
     plt.title(f"Algorithm Comparison (n={n}, tau={tau})")
     
     # 各アルゴリズムのデータをプロット
-    colors = ['blue', 'red', 'green']
-    markers = ['o', 's', '^']
+    colors = ['blue', 'red', 'green', 'orange']
+    markers = ['o', 's', '^', 'D']
     
     for i, (algo_name, (k_list, value_list)) in enumerate(data_dict.items()):
         if k_list and value_list:  # データが存在する場合のみプロット
+            color_index = i % len(colors)
+            marker_index = i % len(markers)
             plt.plot(k_list, value_list, 
                     linestyle='solid', 
-                    marker=markers[i], 
-                    color=colors[i],
+                    marker=markers[marker_index], 
+                    color=colors[color_index],
                     label=algo_name,
                     linewidth=2,
                     markersize=6)
@@ -126,17 +128,19 @@ time = input_csv[input_csv.keys()[5]]
 prev_n = int(n[0])
 prev_tau = int(tau[0])
 
-# データ構造を辞書形式に変更
+# データ構造を辞書形式に変更（ACTSを追加）
 current_data = {
     "array_size": {
         "Adaptive_Sampling": ([], []),
         "Heuristic_Greedy": ([], []),
-        "Simulated_Annealing": ([], [])
+        "Simulated_Annealing": ([], []),
+        "ACTS": ([], [])
     },
     "time": {
         "Adaptive_Sampling": ([], []),
         "Heuristic_Greedy": ([], []),
-        "Simulated_Annealing": ([], [])
+        "Simulated_Annealing": ([], []),
+        "ACTS": ([], [])
     }
 }
 
@@ -158,7 +162,7 @@ for i in range(0, n.size, 1):
                 current_data[f][algo_name] = ([], [])
 
     # データを追加（TIMEOUTでない場合のみ）
-    if array_size[i] not in ["TIMEOUT", "NOT_COVERED"]:
+    if array_size[i] not in ["TIMEOUT", "NOT_COVERED", "ERROR"]:
         algo_name = algo[i]
         if algo_name in current_data["array_size"]:
             current_data["array_size"][algo_name][0].append(int(k[i]))
