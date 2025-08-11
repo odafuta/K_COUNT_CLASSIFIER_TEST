@@ -187,7 +187,10 @@ def main():
         if sa_timeout or sa_result is None:
             case_results['sa'] = {'rows': 'TIMEOUT', 'time': float('inf')}
         else:
-            case_results['sa'] = {'rows': sa_result['num_rows'], 'time': sa_result['time']}
+            if sa_result.get('covered', False):
+                case_results['sa'] = {'rows': sa_result['num_rows'], 'time': sa_result['time']}
+            else:
+                case_results['sa'] = {'rows': 'NOT_COVERED', 'time': sa_result['time']}
             print(f"  -> Done in {sa_result['time']:.4f}s, Generated {sa_result['num_rows']} rows.")
 
         all_results.append(case_results)
