@@ -1,0 +1,1165 @@
+/* by FengDuan
+ Use JavaCC
+ javacc -OUTPUT_DIRECTORY:..\constraint ..\ConstraintLiteralsParser.jj
+
+ * Modified from ConstraintChocoParser.jj, to parse FireEye constraint to get its literal symbols form.
+ * When parsing a constraint, once meet a FOL operator (>,<,>=,<=,=,!=,+,-,*,/,%) , 
+ * then consider this lower expression as a literal. 
+ * Relational/Additive/Multiplicative Expressions Mapping to literals.
+ * IMPLIES, OR, AND, NOT, () Expressions are not mapped to literals but combinations of lower literals.
+*/
+options {
+	static = false;
+}
+
+PARSER_BEGIN(ConstraintLiteralsParser)
+package edu.uta.cse.fireeye.service.constraint;
+
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+import choco.kernel.model.constraints.Constraint;
+import edu.uta.cse.fireeye.common.Parameter;
+import edu.uta.cse.fireeye.util.FireeyeConstants;
+
+public class ConstraintLiteralsParser {
+
+   // store parameter values
+   private HashMap params;
+   private ChocoContext choco;
+   private List list;
+      
+   // a list of parameters that appear in the constraint
+   private ArrayList<Parameter> usedParams;
+      
+   // for literals mapping @FengDuan
+   private String literalPrefix = "literal_";
+   private int literalCounter = 0;
+
+   public ConstraintLiteralsParser (String constraint, ChocoContext choco_context, List l) {
+      this(new StringReader (constraint));
+      choco = choco_context;
+      params = new HashMap ();
+      list = l;
+      usedParams = new ArrayList<Parameter> ();
+   }
+   
+   public ConstraintLiteralsParser (String constraint, HashMap paramsMap, ChocoContext choco_context, List l) {
+      this(new StringReader (constraint));
+      choco = choco_context;
+      params = paramsMap;
+      list = l;
+      usedParams = new ArrayList<Parameter> ();
+   }
+ 
+   // add a param/value pair
+   public void addParam (String p_name, Object p_value) {
+      params.put(p_name, p_value);
+   } 
+	
+	// get the list of used parameters
+	public ArrayList<Parameter> getUsedParamList () {
+		return usedParams;
+	}
+	
+   public Object lookup (String p_name) {
+     return params.get(p_name);
+   }
+
+	//here Ret is a constraint info for Aima CNF convertor, including Choco constraint and combinations of literals @FengDuan
+   public TypeInfo parse () throws ParseException {
+	   return ((TypeInfo) ACTConstraint(true));
+   }
+
+   public boolean evaluate () {
+      boolean rval = true;
+      try {
+        rval = ((Boolean) ACTConstraint (false)).booleanValue();
+      }
+      catch (Exception ex) {
+        //System.out.println("Parser Exception: " + ex);
+        rval = false;
+      }      
+
+      return rval;
+   }
+
+public static void main (String args[]) throws ParseException {
+    String constraint = "(p4=0 && p5=0 && p6=0 && p7=0)";
+
+    ArrayList<Parameter> params = new ArrayList<Parameter>();
+    params.add(new Parameter("p4"));
+    params.add(new Parameter("p5"));
+    params.add(new Parameter("p6"));
+    params.add(new Parameter("p7"));
+    
+    HashMap<String, Parameter> paramMap = new HashMap<String, Parameter>();
+    for (Parameter param : params) {
+        paramMap.put(param.getName(), param);
+    }
+
+    ConstraintLiteralsParser parser = new ConstraintLiteralsParser(constraint, paramMap, new ChocoContext(),  null);
+    try{
+    	 System.out.println( parser.parse().getConstraint().pretty());
+    } catch (Exception ex){
+         System.out.print(ex);
+    }
+
+  }
+
+}
+
+PARSER_END(ConstraintLiteralsParser)
+
+SKIP:
+{
+   " "
+   | "\t"
+   | "\n"
+   | "\r"
+}
+
+TOKEN: 
+{
+   < INTEGER_LITERAL: ["0"-"9"](["0"-"9"])* >
+|
+   < STRING_LITERAL: 
+                "\"" 
+	(~["\"","\\","\n","\r"])*
+	"\""
+   >
+|  
+   < TRUE: "true" | "TRUE" | "True" >
+|
+   < FALSE: "false" | "FALSE" | "False" >
+|
+   < IDENTIFIER: (<LETTER> | <DIGIT>) (<LETTER> | <DIGIT>)* >
+| 
+   < #LETTER: ["A"-"Z", "a"-"z", "_"] >
+|
+   < #DIGIT: ["0"-"9"] >
+|
+   < EQ : "=" | "==" >
+|	
+   < GT:   ">"  >
+|	
+   < LT:   "<"  >
+|	
+   < LE:   "<=" >
+|	
+   < GE:   ">=" >
+|	
+   < NE:   "!=" >
+|	
+   < AND:  "&&" >
+|	
+   < OR:   "||" >
+|	
+   < NOT:  "!" | "~">
+|
+   < IM:   "=>" >
+|	
+   < PLUS: "+"  >
+|	
+   < MINUS: "-"  >
+|	
+   < MUL:  "*"  >
+|	
+   < DIV:  "/"  >
+|	
+   < MOD:  "%"  >
+|
+   < OPENPAR: "(" >
+|  
+   < CLOSEPAR: ")" >
+}
+
+Object ACTConstraint (boolean parse_only) :
+{
+   Object rval;
+}
+{
+   (rval = LogicalExpression (parse_only)) {
+     if (parse_only) {
+     	TypeInfo rvalTI = (TypeInfo) rval;
+     	if (rvalTI.getType() != FireeyeConstants.TYPE_BOOL) {
+     	   throw new ParseException("Boolean expression expected:\n" + rvalTI.getText());
+     	}
+     }
+     return rval;
+   }
+}
+
+Object LogicalExpression (boolean parse_only) :
+{
+   Object rval;
+}
+{
+   (rval = ImplicativeExpression (parse_only)) {
+   	 return rval;
+   }
+}
+
+Object ImplicativeExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval;
+   Object temp;
+   TypeInfo rvalTI = new TypeInfo();
+   TypeInfo tempTI = new TypeInfo();
+}
+{
+   (rval = OrExpression (parse_only))
+   ((t = <IM>) (temp = OrExpression (parse_only)) {
+		if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+            
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+//            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+            rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());	// save children's literalsMap @FengDuan
+            rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+            rv.setText("(" + rvalTI.getText() + " => " + tempTI.getText() + ")"); //for Aima FOLParser @FengDuan
+                   
+        	if(rvalTI.getType() != FireeyeConstants.TYPE_BOOL) {
+           		throw new ParseException("Boolean type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+        	}
+        	else if(tempTI.getType() != FireeyeConstants.TYPE_BOOL) {
+           		throw new ParseException("Boolean type expected: " + tempTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());           
+        	}
+            rv.setConstraint(choco.mk_cst(t.image, rvalTI.getConstraint(), tempTI.getConstraint()));
+            rval = rv;
+      } else {
+        rval = new Boolean (
+                  !((Boolean) rval).booleanValue () 
+                   || ((Boolean) temp).booleanValue ());
+      }
+    }
+   ) * 
+   {
+     return rval;
+   }
+}
+
+Object OrExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval;
+   Object temp;
+   TypeInfo rvalTI = new TypeInfo();
+   TypeInfo tempTI = new TypeInfo();
+}
+{
+   (rval = AndExpression (parse_only)) 
+   ((t = <OR>) (temp = AndExpression (parse_only)) {
+       	if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+//            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+            rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());	// save children's literalsMap @FengDuan
+            rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());	
+            rv.setText("(" + rvalTI.getText() + " OR " + tempTI.getText() + ")"); //for Aima FOLParser @FengDuan
+        
+        	if(rvalTI.getType() != FireeyeConstants.TYPE_BOOL) {
+           		throw new ParseException("Boolean type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+        	}
+        	else if(tempTI.getType() != FireeyeConstants.TYPE_BOOL) {
+            	throw new ParseException("Boolean type expected: " + tempTI.getText()
+                                     + "\n" + "   in expression: " + rv.getText());           
+        	}
+
+            rv.setConstraint(choco.mk_cst(t.image, rvalTI.getConstraint(), tempTI.getConstraint()));
+            rval = rv;
+ 	    } else {
+           rval = new Boolean (
+               ((Boolean) rval).booleanValue() 
+               || ((Boolean) temp).booleanValue());
+        }
+   }) *
+   {
+      return rval;
+   }
+}
+
+Object AndExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval;
+   Object temp;
+   TypeInfo rvalTI = null;
+   TypeInfo tempTI = null;
+}
+{
+   (rval = RelationalExpression (parse_only))
+   ( (t = <AND>) (temp = RelationalExpression (parse_only)) {
+       	if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+            
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+//            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+            rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());	// save children's literalsMap @FengDuan
+            rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+            rv.setText("(" + rvalTI.getText() + " AND " + tempTI.getText() + ")"); //for Aima FOLParser @FengDuan
+                
+	        if(rvalTI.getType() != FireeyeConstants.TYPE_BOOL) {
+    	       throw new ParseException("Boolean type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+       	 	}
+        	else if(tempTI.getType() != FireeyeConstants.TYPE_BOOL) {
+            	throw new ParseException("Boolean type expected: " + tempTI.getText()
+                                     + "\n" + "   in expression: " + rv.getText());           
+        	}
+            rv.setConstraint(choco.mk_cst(t.image, rvalTI.getConstraint(), tempTI.getConstraint()));
+            rval = rv;
+	     } else {
+             rval = new Boolean(
+                   ((Boolean) rval).booleanValue () 
+                   && ((Boolean) temp).booleanValue ());
+         }
+       }
+   ) *
+   {
+       return rval;
+   }
+}
+
+Object RelationalExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval;
+   Object temp;
+   TypeInfo rvalTI = null;
+   TypeInfo tempTI = null;
+}
+{
+   (rval = AdditiveExpression (parse_only))
+   (
+     ( (t=<LT>) (temp = AdditiveExpression (parse_only)) ) {
+ 	    if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+        
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_BOOL);
+//            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+            // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+            // if rval or temp is literal, read its original content from its literalsMap.
+            // Save the original content of expression into literalsMap. 
+            String rvalStr = rvalTI.getText();
+            String tempStr = tempTI.getText();
+            String regex = literalPrefix + "(0|[1-9][0-9]*)";
+            if (rvalStr.matches(regex))
+            	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+            if (tempStr.matches(regex))
+            	tempStr = tempTI.getLiteralsMap().get(tempStr);
+            String text = rvalStr + " " + t.image + " " + tempStr;
+            String literal = literalPrefix + literalCounter;
+            rv.getLiteralsMap().put(literal, text);
+            rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+            rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+            rv.setText(literal);
+            literalCounter++;
+					        
+        	if(rvalTI.getType() != FireeyeConstants.TYPE_INT
+           		&& rvalTI.getType () != FireeyeConstants.TYPE_STRING) {
+           		throw new ParseException("Integer or String type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+        	}
+        	else if(tempTI.getType() != FireeyeConstants.TYPE_INT
+        	    && tempTI.getType() != FireeyeConstants.TYPE_STRING) {
+            		throw new ParseException("Integer or String type expected: " + tempTI.getText()
+                                     + "\n" + "   in expression: " + rv.getText());           
+        	}
+        	else if (tempTI.getType () != rvalTI.getType ()) {
+        		throw new ParseException("Type mismatch: " + rvalTI.getText() 
+        	                           + " " + t.image + " " + tempTI.getText());
+       		}
+       		
+        	rv.setConstraint(choco.mk_comp(t.image, rvalTI.getVariable(), tempTI.getVariable()));
+        	rval = rv;
+    	} else {
+      		if (temp instanceof Integer) {
+        		if(((Integer) rval).intValue() < ((Integer) temp).intValue ()) {
+           			rval = Boolean.TRUE;
+        	}
+        	else {
+           		rval = Boolean.FALSE;
+        	}
+      }
+      else if (temp instanceof String) {
+        int tmp = ((String) rval).compareTo ((String) temp);
+        if (tmp < 0) {
+           rval = Boolean.TRUE;
+        }
+        else {
+           rval = Boolean.FALSE;
+        }
+      }
+    }
+ }
+ |
+ ( (t=<GT>) (temp = AdditiveExpression (parse_only)) ) {
+    if(parse_only){
+        tempTI  = (TypeInfo)temp;
+        rvalTI = (TypeInfo)rval;
+        
+        TypeInfo rv = new TypeInfo();
+        rv.setType(FireeyeConstants.TYPE_BOOL);
+//        rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+     // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+        // if rval or temp is literal, read its original content from its literalsMap.
+        // Save the original content of expression into literalsMap. 
+        String rvalStr = rvalTI.getText();
+        String tempStr = tempTI.getText();
+        String regex = literalPrefix + "(0|[1-9][0-9]*)";
+        if (rvalStr.matches(regex))
+        	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+        if (tempStr.matches(regex))
+        	tempStr = tempTI.getLiteralsMap().get(tempStr);
+        String text = rvalStr + " " + t.image + " " + tempStr;
+        String literal = literalPrefix + literalCounter;
+        rv.getLiteralsMap().put(literal, text);
+        rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+        rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+        rv.setText(literal);
+        literalCounter++;
+    
+        if(rvalTI.getType() != FireeyeConstants.TYPE_INT
+           && rvalTI.getType () != FireeyeConstants.TYPE_STRING) {
+           throw new ParseException("Integer or String type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+        }
+        else if(tempTI.getType() != FireeyeConstants.TYPE_INT
+        	    && tempTI.getType() != FireeyeConstants.TYPE_STRING) {
+            throw new ParseException("Integer or String type expected: " + tempTI.getText()
+                                     + "\n" + "   in expression: " + rv.getText());           
+        }
+        else if (tempTI.getType () != rvalTI.getType ()) {
+        	throw new ParseException("Type mismatch: " + rvalTI.getText() 
+        	                           + " " + t.image + " " + tempTI.getText());
+        }
+        
+        rv.setConstraint(choco.mk_comp(t.image, rvalTI.getVariable(), tempTI.getVariable()));
+        rval = rv;
+     } else {
+       if (temp instanceof Integer) {
+         if(((Integer) rval).intValue() > ((Integer) temp).intValue()) {
+           rval = Boolean.TRUE;
+         } else {
+           rval = Boolean.FALSE;
+         }
+       }
+       else if (temp instanceof String) {
+         int tmp = ((String) rval).compareTo ((String) temp);
+         if (tmp > 0) {
+           rval = Boolean.TRUE;
+         }
+         else {
+           rval = Boolean.FALSE;
+         }
+       }
+    }
+ }
+ |
+ ( (t=<LE>) (temp = AdditiveExpression (parse_only)) ) {
+    if(parse_only){
+        tempTI  = (TypeInfo)temp;
+        rvalTI = (TypeInfo)rval;
+        
+        TypeInfo rv = new TypeInfo();
+        rv.setType(FireeyeConstants.TYPE_BOOL);
+//        rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+     // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+        // if rval or temp is literal, read its original content from its literalsMap.
+        // Save the original content of expression into literalsMap. 
+        String rvalStr = rvalTI.getText();
+        String tempStr = tempTI.getText();
+        String regex = literalPrefix + "(0|[1-9][0-9]*)";
+        if (rvalStr.matches(regex))
+        	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+        if (tempStr.matches(regex))
+        	tempStr = tempTI.getLiteralsMap().get(tempStr);
+        String text = rvalStr + " " + t.image + " " + tempStr;
+        String literal = literalPrefix + literalCounter;
+        rv.getLiteralsMap().put(literal, text);
+        rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+        rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+        rv.setText(literal);
+        literalCounter++;
+    
+        if(rvalTI.getType() != FireeyeConstants.TYPE_INT
+           && rvalTI.getType () != FireeyeConstants.TYPE_STRING) {
+           throw new ParseException("Integer or String type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+        }
+        else if(tempTI.getType() != FireeyeConstants.TYPE_INT
+        	    && tempTI.getType() != FireeyeConstants.TYPE_STRING) {
+            throw new ParseException("Integer or String type expected: " + tempTI.getText()
+                                     + "\n" + "   in expression: " + rv.getText());           
+        }
+        else if (tempTI.getType () != rvalTI.getType ()) {
+        	throw new ParseException("Type mismatch: " + rvalTI.getText() 
+        	                           + " " + t.image + " " + tempTI.getText());
+        }
+		rv.setConstraint(choco.mk_comp(t.image, rvalTI.getVariable(), tempTI.getVariable()));
+        rval = rv;
+    } else {
+      if (temp instanceof Integer) {
+        if(((Integer) rval).intValue() <= ((Integer) temp).intValue()) {
+           rval = Boolean.TRUE;
+        }
+        else {
+           rval = Boolean.FALSE;
+        }
+      }
+      else if (temp instanceof String) {
+        int tmp = ((String) rval).compareTo ((String) temp);
+        if (tmp <= 0) {
+           rval = Boolean.TRUE;
+        }
+        else {
+           rval = Boolean.FALSE;
+        }
+      }
+   }
+ }
+ |
+ ( (t=<GE>) (temp = AdditiveExpression (parse_only)) ) {
+    if(parse_only){
+        tempTI  = (TypeInfo)temp;
+        rvalTI = (TypeInfo)rval;
+
+        TypeInfo rv = new TypeInfo();
+        rv.setType(FireeyeConstants.TYPE_BOOL);
+//        rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+     // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+        // if rval or temp is literal, read its original content from its literalsMap.
+        // Save the original content of expression into literalsMap. 
+        String rvalStr = rvalTI.getText();
+        String tempStr = tempTI.getText();
+        String regex = literalPrefix + "(0|[1-9][0-9]*)";
+        if (rvalStr.matches(regex))
+        	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+        if (tempStr.matches(regex))
+        	tempStr = tempTI.getLiteralsMap().get(tempStr);
+        String text = rvalStr + " " + t.image + " " + tempStr;
+        String literal = literalPrefix + literalCounter;
+        rv.getLiteralsMap().put(literal, text);
+        rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+        rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+        rv.setText(literal);
+        literalCounter++;
+		
+        if(rvalTI.getType() != FireeyeConstants.TYPE_INT
+           && rvalTI.getType () != FireeyeConstants.TYPE_STRING) {
+           throw new ParseException("Integer or String type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+        }
+        else if(tempTI.getType() != FireeyeConstants.TYPE_INT
+        	    && tempTI.getType() != FireeyeConstants.TYPE_STRING) {
+            throw new ParseException("Integer or String type expected: " + tempTI.getText()
+                                     + "\n" + "   in expression: " + rv.getText());           
+        }
+        else if (tempTI.getType () != rvalTI.getType ()) {
+        	throw new ParseException("Type mismatch: " + rvalTI.getText() 
+        	                           + " " + t.image + " " + tempTI.getText());
+        }
+        rv.setConstraint(choco.mk_comp(t.image, rvalTI.getVariable(), tempTI.getVariable()));
+        rval = rv;
+    } else {
+       if (temp instanceof Integer) {
+         if(((Integer) rval).intValue() >= ((Integer) temp).intValue()) {
+           rval = Boolean.TRUE;
+         }
+         else {
+           rval = Boolean.FALSE;
+         }
+       }
+       else if (temp instanceof String) {
+         int tmp = ((String) rval).compareTo ((String) temp);
+         if (tmp >= 0) {
+           rval = Boolean.TRUE;
+         }
+         else {
+           rval = Boolean.FALSE;
+         }
+       }
+    }
+ }
+ |
+ ( (t=<EQ>) (temp = AdditiveExpression (parse_only)) ) {     
+   if(parse_only){
+        tempTI  = (TypeInfo)temp;
+        rvalTI = (TypeInfo)rval;           
+    
+        if(rvalTI.getType() != tempTI.getType()) {
+    	    throw new ParseException ("Type mismatch: " 
+    	    	+ rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+        } else  {
+            TypeInfo ti = new TypeInfo();
+            ti.setType(FireeyeConstants.TYPE_BOOL);
+//            ti.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+         // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+            // if rval or temp is literal, read its original content from its literalsMap.
+            // Save the original content of expression into literalsMap. 
+            String rvalStr = rvalTI.getText();
+            String tempStr = tempTI.getText();
+            String regex = literalPrefix + "(0|[1-9][0-9]*)";
+            if (rvalStr.matches(regex))
+            	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+            if (tempStr.matches(regex))
+            	tempStr = tempTI.getLiteralsMap().get(tempStr);
+            String text = rvalStr + " " + t.image + " " + tempStr;
+            String literal = literalPrefix + literalCounter;
+            ti.getLiteralsMap().put(literal, text);
+            ti.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+            ti.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+            ti.setText(literal);
+            literalCounter++;
+
+        	ti.setConstraint(choco.mk_comp(t.image, rvalTI.getVariable(), tempTI.getVariable()));
+            rval = ti;;
+       }
+    } else {
+      if (temp instanceof Integer) {
+         if(((Integer) rval).intValue() == ((Integer) temp).intValue()) {
+            rval = Boolean.TRUE;
+         }
+         else {
+           rval = Boolean.FALSE;
+         }
+      }
+      else if (temp instanceof String) {
+         int tmp = ((String) rval).compareTo ((String) temp);
+         if (tmp == 0) {
+           rval = Boolean.TRUE;
+         }
+         else {
+           rval = Boolean.FALSE;
+         }
+      }
+      else if (temp instanceof Boolean) {
+         if(((Boolean) rval).equals(temp)) {
+           rval = Boolean.TRUE;
+         }
+         else {
+           rval = Boolean.FALSE;
+         }
+      } 
+   }
+ }
+ |
+ ( (t=<NE>) (temp = AdditiveExpression (parse_only)) ) {
+   if(parse_only){
+        tempTI  = (TypeInfo)temp;
+        rvalTI = (TypeInfo)rval;           
+
+        TypeInfo ti = new TypeInfo();
+        ti.setType(FireeyeConstants.TYPE_BOOL);
+//        ti.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+     // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+        // if rval or temp is literal, read its original content from its literalsMap.
+        // Save the original content of expression into literalsMap. 
+        String rvalStr = rvalTI.getText();
+        String tempStr = tempTI.getText();
+        String regex = literalPrefix + "(0|[1-9][0-9]*)";
+        if (rvalStr.matches(regex))
+        	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+        if (tempStr.matches(regex))
+        	tempStr = tempTI.getLiteralsMap().get(tempStr);
+        String text = rvalStr + " " + t.image + " " + tempStr;
+        String literal = literalPrefix + literalCounter;
+        ti.getLiteralsMap().put(literal, text);
+        ti.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+        ti.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+        ti.setText(literal);
+        literalCounter++;
+    
+        if(rvalTI.getType() != tempTI.getType()) {
+    	    throw new ParseException ("Type mismatch: " 
+    	    	+ rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+        }
+        ti.setConstraint(choco.mk_comp(t.image, rvalTI.getVariable(), tempTI.getVariable()));
+        rval = ti;;
+        } else {
+            if (temp instanceof Integer) {
+              if(((Integer) rval).intValue() != ((Integer) temp).intValue()) {
+                rval = Boolean.TRUE;
+              }
+              else {
+                rval = Boolean.FALSE;
+              }
+            }
+            else if (temp instanceof String) {
+              int tmp = ((String) rval).compareTo ((String) temp);
+              if (tmp != 0) {
+                rval = Boolean.TRUE;
+              }
+              else {
+                rval = Boolean.FALSE;
+              }
+            }
+            else if (temp instanceof Boolean) {
+              if(!((Boolean) rval).equals(temp)) {
+                rval = Boolean.TRUE;
+              }
+              else {
+                rval = Boolean.FALSE;
+              }
+            }
+       } 
+     }
+   )* 
+   {
+     return rval;
+   }
+}
+
+Object AdditiveExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval = null;
+   Object temp;
+   TypeInfo rvalTI = null;
+   TypeInfo tempTI = null;
+}
+{
+   (rval = MultiplicativeExpression (parse_only)) (
+      ( (t=<PLUS>) (temp = MultiplicativeExpression (parse_only)) ) {
+        if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+            
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_INT);
+//            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+         // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+            // if rval or temp is literal, read its original content from its literalsMap.
+            // Save the original content of expression into literalsMap. 
+            String rvalStr = rvalTI.getText();
+            String tempStr = tempTI.getText();
+            String regex = literalPrefix + "(0|[1-9][0-9]*)";
+            if (rvalStr.matches(regex))
+            	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+            if (tempStr.matches(regex))
+            	tempStr = tempTI.getLiteralsMap().get(tempStr);
+            String text = rvalStr + " " + t.image + " " + tempStr;
+            String literal = literalPrefix + literalCounter;
+            rv.getLiteralsMap().put(literal, text);
+            rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+            rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+            rv.setText(literal);
+            literalCounter++;
+               
+        if(rvalTI.getType() != FireeyeConstants.TYPE_INT) {
+           throw new ParseException("Integer type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+        }
+        else if(tempTI.getType() != FireeyeConstants.TYPE_INT) {
+            throw new ParseException("Integer type expected: " + tempTI.getText()
+                                     + "\n" + "   in expression: " + rv.getText());           
+        }
+		rv.setVariable(choco.mk_op(t.image,rvalTI.getVariable(),tempTI.getVariable()));
+		        
+        rval = rv;
+    } else { 
+        rval = new Integer(((Integer) rval).intValue() + ((Integer) temp).intValue ());
+    }
+  }
+  |
+  ( (t=<MINUS>) (temp = MultiplicativeExpression (parse_only)) ) {
+    if(parse_only){
+        tempTI  = (TypeInfo)temp;
+        rvalTI = (TypeInfo)rval;
+
+        TypeInfo rv = new TypeInfo();
+        rv.setType(FireeyeConstants.TYPE_INT);
+//        rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+     // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+        // if rval or temp is literal, read its original content from its literalsMap.
+        // Save the original content of expression into literalsMap. 
+        String rvalStr = rvalTI.getText();
+        String tempStr = tempTI.getText();
+        String regex = literalPrefix + "(0|[1-9][0-9]*)";
+        if (rvalStr.matches(regex))
+        	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+        if (tempStr.matches(regex))
+        	tempStr = tempTI.getLiteralsMap().get(tempStr);
+        String text = rvalStr + " " + t.image + " " + tempStr;
+        String literal = literalPrefix + literalCounter;
+        rv.getLiteralsMap().put(literal, text);
+        rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+        rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+        rv.setText(literal);
+        literalCounter++;
+                
+        if(rvalTI.getType() != FireeyeConstants.TYPE_INT) {
+           throw new ParseException("Integer type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+        }
+        else if(tempTI.getType() != FireeyeConstants.TYPE_INT) {
+            throw new ParseException("Integer type expected: " + tempTI.getText()
+                                     + "\n" + "   in expression: " + rv.getText());           
+            }
+			rv.setVariable(choco.mk_op(t.image,rvalTI.getVariable(),tempTI.getVariable()));
+            
+            rval = rv;
+         } else {
+            rval = new Integer(((Integer) rval).intValue() - ((Integer) temp).intValue ());
+         }
+      }
+   )*
+   {
+      return rval;
+   }
+}
+
+Object MultiplicativeExpression (boolean parse_only) :
+{
+   Token t = null;
+   Object rval = null;
+   Object temp;
+   TypeInfo rvalTI = null;
+   TypeInfo tempTI = null;
+}
+{
+   (rval = UnaryExpression (parse_only)) 
+   (
+      ((t=<MUL>) (temp = UnaryExpression (parse_only))) {
+      	if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+        
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_INT);
+//            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+         // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+            // if rval or temp is literal, read its original content from its literalsMap.
+            // Save the original content of expression into literalsMap. 
+            String rvalStr = rvalTI.getText();
+            String tempStr = tempTI.getText();
+            String regex = literalPrefix + "(0|[1-9][0-9]*)";
+            if (rvalStr.matches(regex))
+            	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+            if (tempStr.matches(regex))
+            	tempStr = tempTI.getLiteralsMap().get(tempStr);
+            String text = rvalStr + " " + t.image + " " + tempStr;
+            String literal = literalPrefix + literalCounter;
+            rv.getLiteralsMap().put(literal, text);
+            rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+            rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+            rv.setText(literal);
+            literalCounter++;
+                    
+        if(rvalTI.getType() != FireeyeConstants.TYPE_INT) {
+           throw new ParseException("Integer type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+        }
+        else if(tempTI.getType() != FireeyeConstants.TYPE_INT) {
+            throw new ParseException("Integer type expected: " + tempTI.getText()
+                                     + "\n" + "   in expression: " + rv.getText());           
+            }
+			rv.setVariable(choco.mk_op(t.image,rvalTI.getVariable(),tempTI.getVariable()));
+            
+            rval = rv;
+	    } else {
+         	rval = new Integer(((Integer) rval).intValue() * ((Integer) temp).intValue ());
+      	}
+      }
+      |
+      ((t=<DIV>) (temp = UnaryExpression (parse_only) )) {
+        if(parse_only){
+            tempTI  = (TypeInfo)temp;
+            rvalTI = (TypeInfo)rval;
+ 
+            TypeInfo rv = new TypeInfo();
+            rv.setType(FireeyeConstants.TYPE_INT);
+//            rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+         // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+            // if rval or temp is literal, read its original content from its literalsMap.
+            // Save the original content of expression into literalsMap. 
+            String rvalStr = rvalTI.getText();
+            String tempStr = tempTI.getText();
+            String regex = literalPrefix + "(0|[1-9][0-9]*)";
+            if (rvalStr.matches(regex))
+            	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+            if (tempStr.matches(regex))
+            	tempStr = tempTI.getLiteralsMap().get(tempStr);
+            String text = rvalStr + " " + t.image + " " + tempStr;
+            String literal = literalPrefix + literalCounter;
+            rv.getLiteralsMap().put(literal, text);
+            rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+            rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+            rv.setText(literal);
+            literalCounter++;
+                
+        if(rvalTI.getType() != FireeyeConstants.TYPE_INT) {
+           throw new ParseException("Integer type expected: " + rvalTI.getText()
+                                    + "\n" + "   in expression: " + rv.getText());
+        }
+        else if(tempTI.getType() != FireeyeConstants.TYPE_INT) {
+           throw new ParseException("Integer type expected: " + tempTI.getText()
+            						+ "\n" + "   in expression: " + rv.getText());           
+        }
+		rv.setVariable(choco.mk_op(t.image,rvalTI.getVariable(),tempTI.getVariable()));
+        
+        rval = rv;
+    } else {        
+        rval = new Integer(((Integer) rval).intValue() / ((Integer) temp).intValue ());
+    }
+  }
+  |
+  ((t=<MOD>) (temp = UnaryExpression (parse_only) )) {
+     if(parse_only){
+        tempTI  = (TypeInfo)temp;
+        rvalTI = (TypeInfo)rval;
+    
+        TypeInfo rv = new TypeInfo();
+        rv.setType(FireeyeConstants.TYPE_INT);
+//        rv.setText(rvalTI.getText() + " " + t.image + " " + tempTI.getText());
+     // Relational/Additive/Multiplicative Expressions Mapping to literals @FengDuan
+        // if rval or temp is literal, read its original content from its literalsMap.
+        // Save the original content of expression into literalsMap. 
+        String rvalStr = rvalTI.getText();
+        String tempStr = tempTI.getText();
+        String regex = literalPrefix + "(0|[1-9][0-9]*)";
+        if (rvalStr.matches(regex))
+        	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+        if (tempStr.matches(regex))
+        	tempStr = tempTI.getLiteralsMap().get(tempStr);
+        String text = rvalStr + " " + t.image + " " + tempStr;
+        String literal = literalPrefix + literalCounter;
+        rv.getLiteralsMap().put(literal, text);
+        rv.getLiteralsMap().putAll(rvalTI.getLiteralsMap());
+        rv.getLiteralsMap().putAll(tempTI.getLiteralsMap());
+        rv.setText(literal);
+        literalCounter++;
+                
+        if(rvalTI.getType() != FireeyeConstants.TYPE_INT) {
+           throw new ParseException("Integer type expected: " + rvalTI.getText()
+           							 + "\n" + "  in expression: " + rv.getText());
+           							 
+        }
+        else if(tempTI.getType() != FireeyeConstants.TYPE_INT) {
+           throw new ParseException("Integer type expected: " + tempTI.getText()
+                                     + "\n" + "   in expression: " + rv.getText());           
+            }
+			rv.setVariable(choco.mk_op(t.image,rvalTI.getVariable(),tempTI.getVariable()));
+            
+            rval = rv;
+          } else {
+            rval = new Integer(((Integer) rval).intValue() % ((Integer) temp).intValue ());
+         }
+      }
+   )*
+   { return rval; }
+}
+
+Object UnaryExpression (boolean parse_only) :
+{
+   Token t = null;
+   Token tt = null;
+   Object temp;
+   Object rval = null;
+}
+{	
+    ((t=<INTEGER_LITERAL>) {
+      if(parse_only) {
+    	TypeInfo rv = new TypeInfo();
+    	rv.setType(FireeyeConstants.TYPE_INT);
+    	rv.setText(t.image);
+		rv.setVariable(choco.mk_int(Integer.parseInt(t.image)));
+		rval = rv;    	
+  } else {
+    int val = Integer.parseInt (t.image);
+    rval = new Integer (val);
+  }
+}
+|
+(t=<STRING_LITERAL>) {
+   if(parse_only) {
+      TypeInfo rv = new TypeInfo();
+      rv.setType(FireeyeConstants.TYPE_STRING);
+      rv.setText(t.image);
+      //convert enum to int
+      rv.setVariable(choco.mk_enum(t.image.substring(1, t.image.length()-1).trim()));
+      rval = rv;
+	} else {
+      // strip the quotes
+      rval = t.image.substring(1, t.image.length()-1).trim();
+   }
+}
+|
+(t=<TRUE>) {
+  if(parse_only){
+	 TypeInfo rv = new TypeInfo();
+     rv.setType(FireeyeConstants.TYPE_BOOL);
+     rv.setText(t.image);
+     rv.setVariable(choco.mk_true());
+     rval = rv;
+  } else {
+     rval = Boolean.TRUE;
+  }
+}
+|
+(t=<FALSE>) {
+  if(parse_only){
+	 TypeInfo rv = new TypeInfo();
+     rv.setType(FireeyeConstants.TYPE_BOOL);
+     rv.setText(t.image);
+     rv.setVariable(choco.mk_false());
+     rval = rv;
+  } else {
+     rval = Boolean.FALSE;
+  }
+}
+|
+(t=<IDENTIFIER>) {    
+  if(parse_only){
+     Parameter param = (Parameter) lookup(t.image);
+     if (param == null) {
+        throw new ParseException("Unrecognized parameter: " + t.image
+        		   					+ "\nIf this is a param value (i.e., not a param name), it needs to be quoted.");
+     } else {	
+        TypeInfo rv = new TypeInfo();
+        rv.setType (param.getParamType ());
+//        rv.setText (t.image);//        if(param.getParamType() == FireeyeConstants.TYPE_BOOL)//        	rv.setVariable(choco.mk_bool_var(t.image));//        else //        	rv.setVariable(choco.mk_int_var(t.image));
+        if(param.getParamType() == FireeyeConstants.TYPE_BOOL)
+        {
+                rv.setVariable(choco.mk_bool_var(t.image));
+
+                // set for single bool param in constraint for Aima FOLParser, such as "b1" to be a literal @FengDuan
+                String text = t.image;
+                String literal = literalPrefix + literalCounter;
+                rv.getLiteralsMap().put(literal, text);
+                rv.setText(literal);
+                literalCounter++;
+        }
+        else
+        {
+                rv.setVariable(choco.mk_int_var(t.image));
+                rv.setText (t.image);
+        }
+
+        rval = rv;
+        
+        // add this valid parameter into usedParam list
+        usedParams.add (param);	        
+     }	            
+  } else {
+    // look up the value of a variable
+    rval = lookup (t.image);
+	if (rval == null) {
+	   throw new ParseException ("Unrecognized parameter: " + t.image 
+	   								+ "\nIf this is a param value (i.e., not a param name), it needs to be quoted.");
+    }
+  }
+}
+| (t=<NOT>) (temp = UnaryExpression (parse_only)) {        		 
+	if(parse_only) {
+	  TypeInfo ti = (TypeInfo) temp;
+	  if (ti.getType() != FireeyeConstants.TYPE_BOOL) {
+	  	throw new ParseException ("Boolean type expected: " + ti.getText()
+	  	                          + "\n" + "   in expression: " + t.image + " " + ti.getText());
+	  } 
+  	  TypeInfo rv = new TypeInfo();
+      rv.setType(FireeyeConstants.TYPE_BOOL);
+//      rv.setText(t.image + " " + ti.getText());
+      rv.getLiteralsMap().putAll(ti.getLiteralsMap());	// save child's literalsMap @FengDuan
+      rv.setText(" NOT " + "(" + ti.getText() + ")"); //for Aima FOLParser @FengDuan
+
+	  // set choco text
+      rv.setConstraint(choco.mk_cst(t.image,null,ti.getConstraint()));//TODO
+      rval = rv;
+    } else {
+      rval = new Boolean(
+               !((Boolean) temp).booleanValue ()
+             );
+    }
+}
+| (t=<MINUS>) (temp = UnaryExpression (parse_only)) {	//Unary Minus support @FengDuan
+    	if(parse_only) {
+    	  TypeInfo ti = (TypeInfo) temp;
+    	  if (ti.getType() != FireeyeConstants.TYPE_INT) {
+    	  	throw new ParseException ("Integer type expected: " + ti.getText()
+    	  	                          + "\n" + "   in expression: " + t.image + " " + ti.getText());
+    	  } 
+      	  TypeInfo rv = new TypeInfo();
+          rv.setType(FireeyeConstants.TYPE_INT);
+//          rv.setText(t.image + " " + ti.getText());
+          // Unary Minus Expressions Mapping to literals @FengDuan
+            // if temp is literal, read its original content from its literalsMap.
+            // Save the original content of expression into literalsMap. 
+            String tempStr = ti.getText();
+            String regex = literalPrefix + "(0|[1-9][0-9]*)";
+            if (tempStr.matches(regex))            {
+            	tempStr = ti.getLiteralsMap().get(tempStr);
+	            String text = t.image + " " + tempStr;
+	            String literal = literalPrefix + literalCounter;
+	            rv.getLiteralsMap().put(literal, text);
+	            rv.getLiteralsMap().putAll(ti.getLiteralsMap());
+	            rv.setText(literal);
+	            literalCounter++;          	}
+            else	// if temp is an integer, return its negative value            {
+		    	rv.setText(t.image + " " + ti.getText());
+			}
+
+			TypeInfo zero = new TypeInfo();
+		    zero.setType(FireeyeConstants.TYPE_INT);
+		    zero.setVariable(choco.mk_int(0));
+		          
+		    rv.setVariable(choco.mk_op(t.image, zero.getVariable(),ti.getVariable())); // return the "zero minus its variable" as negative variable
+
+        	rval = rv;
+        } else {
+          int val = Integer.parseInt (t.image);
+	      rval = new Integer(-val);
+	    }
+    }
+| (t=<OPENPAR>) (rval = LogicalExpression (parse_only)) (tt=<CLOSEPAR>) { 
+   if(parse_only) {
+     TypeInfo rvalTI = (TypeInfo) rval;
+     TypeInfo ti = new TypeInfo ();
+     ti.setType (rvalTI.getType());
+     ti.getLiteralsMap().putAll(rvalTI.getLiteralsMap()); // save child's literalsMap @FengDuan
+     ti.setText(t.image + rvalTI.getText() + tt.image);
+     // if rval is a single literal, use a new literal to represent (rval). @FengDuan
+     // Note that when in (literal_x) is a single literal, we cannot omit the () to be literal_x, 
+     // since 2 * (p2 + p3) is not equal to 2 * p2 + p3. 
+     // We should use a literal_y to represent (literal_x), and save its original content in map. 
+     // For (b1 && b5), we don¡¯t use literal to represent it since there is not a single literal in ().
+     String rvalStr = rvalTI.getText();
+     String regex = literalPrefix + "(0|[1-9][0-9]*)";
+     if (rvalStr.matches(regex))
+     {
+     	rvalStr = rvalTI.getLiteralsMap().get(rvalStr);
+     	String text = t.image + rvalStr + tt.image;
+        String literal = literalPrefix + literalCounter;
+        ti.getLiteralsMap().put(literal, text);
+        ti.setText(literal);
+        literalCounter++;
+     }
+
+
+	 // set choco text
+     ti.setObj(rvalTI.getObj());
+         
+     rval = ti;
+   }
+  })
+  {
+     return rval; 
+  }
+    
+}

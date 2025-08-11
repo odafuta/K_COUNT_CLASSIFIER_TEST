@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:element name="System">
+    <xs:complexType>
+      <xs:all>
+        <xs:element ref="Parameters"/>
+        <xs:element minOccurs= "0" ref="Relations"/>
+        <xs:element minOccurs= "0" ref="Testset"/>
+        <xs:element minOccurs= "0" ref="Header"/>
+        <xs:element minOccurs= "0" ref="Graph-Data"/>
+        <xs:element minOccurs= "0" ref="Stat-Data"/>
+        <xs:element minOccurs= "0" ref="Constraints"/>
+      </xs:all>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Parameters">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="Parameter"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Relations">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded"  ref="Relation"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Relation">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded"  ref="Parameter"/>
+      </xs:sequence>
+      <xs:attribute name="Strength" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Testset">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="Testcase"/>
+      </xs:sequence>
+      <xs:attribute name="doi" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Testcase">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded"  minOccurs="0" ref="Value"/>
+      </xs:sequence>
+      <xs:attribute name="TCNo" use="required" type="xs:integer"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Header">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" minOccurs="0" ref="Value"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Graph-Data">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" minOccurs="0" ref="Value"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Stat-Data">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="ExecutionTime"/>
+        <xs:element ref="MaxDomainSize"/>
+        <xs:element ref="MinDomainSize"/>
+        <xs:element ref="TotalNoOfCombination"/>
+        <xs:element ref="TotalNoOfTests"/>
+        <xs:element ref="Algorithm"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+   <xs:element name="Constraints">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" minOccurs="0" ref="Value"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="ExecutionTime"  type="xs:decimal"/>
+  <xs:element name="MaxDomainSize"  type="xs:integer"/>
+  <xs:element name="MinDomainSize"  type="xs:integer"/>
+  <xs:element name="TotalNoOfCombination"  type="xs:integer"/>
+  <xs:element name="TotalNoOfTests"  type="xs:integer"/>
+  <xs:element name="Algorithm"  type="xs:NCName"/>
+  <xs:element name="Parameter">
+    <xs:complexType>
+      <xs:choice>
+        <xs:element ref="values"/>
+        <xs:element maxOccurs="unbounded" ref="value"/>
+      </xs:choice>
+      <xs:attribute name="name" use="required" type="xs:NCName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="values">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded"  ref="value"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="Value"  type="xs:string"/>
+  <xs:element name="value" type="xs:NMTOKEN"/> 
+</xs:schema>

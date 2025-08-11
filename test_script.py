@@ -88,7 +88,7 @@ except Exception as e:
         return None, True # Return nothing, an error occurred
 
 # --- Step 1: Ensure all required script files are present ---
-required_files = ['adaptive_sampling.py', 'heuristic_greedy.py', 'simulated_annealing.py', 'testcase_generator.py']
+required_files = ['adaptive_sampling.py', 'heuristic_greedy.py', 'simulated_annealing.py', 'acts_runner.py', 'testcase_generator.py']
 for f in required_files:
     if not os.path.exists(f):
         print(f"Error: Required script '{f}' not found in the current directory.")
@@ -101,8 +101,9 @@ try:
     from adaptive_sampling import generate_LVCA_adaptive_sampling
     from heuristic_greedy import generate_binary_covering_array_heuristic_greedy
     from simulated_annealing import lv_cit_sa
+    from acts_runner import run_acts_covering_array
 except ImportError as e:
-    print(f"Error: Could not import a function from as.py, hg.py, or sa.py.")
+    print(f"Error: Could not import a function from the required modules.")
     print(f"Please ensure they are in the same directory and have no syntax errors.")
     print(f"Details: {e}")
     sys.exit(1)
@@ -193,10 +194,34 @@ def main():
                 case_results['sa'] = {'rows': 'NOT_COVERED', 'time': sa_result['time']}
             print(f"  -> Done in {sa_result['time']:.4f}s, Generated {sa_result['num_rows']} rows.")
 
+        # --- ACTS ---
+        print("Running ACTS...")
+        acts_result, acts_timeout = run_with_timeout(
+            timeout_seconds, run_acts_covering_array,
+            n, tau, k, seed=common_seed, verbose=False
+        )
+        if acts_timeout or acts_result is None:
+            case_results['acts'] = {'rows': 'TIMEOUT', 'time': float('inf')}
+        else:
+            if acts_result.get('error'):
+                # ACTS failed with an error (e.g., Java not available)
+                case_results['acts'] = {'rows': 'ERROR', 'time': acts_result['time']}
+                if i == 0:  # Only print error message for the first test case to avoid spam
+                    print(f"  -> ACTS Error: {acts_result['error']}")
+                    print("  -> ACTS will be skipped for remaining test cases.")
+                else:
+                    print(f"  -> ACTS Error: Skipped due to previous error.")
+            elif acts_result.get('covered', False):
+                case_results['acts'] = {'rows': acts_result['num_rows'], 'time': acts_result['time']}
+                print(f"  -> Done in {acts_result['time']:.4f}s, Generated {acts_result['num_rows']} rows.")
+            else:
+                case_results['acts'] = {'rows': 'NOT_COVERED', 'time': acts_result['time']}
+                print(f"  -> Done in {acts_result['time']:.4f}s, Generated {acts_result['num_rows']} rows.")
+
         all_results.append(case_results)
 
     # --- Step 5: Print the final summary table ---
-    line = "-" * 105
+    line = "-" * 120
     print("\n\n--- Experiment Finished: Overall Results ---")
     print(line)
     header = f"| {'Test Case (n, tau, k)':<25} | {'Algorithm':<45} | {'Array Size':>12} | {'Time (s)':>10} |"
@@ -225,6 +250,11 @@ def main():
             sa_res = result['sa']
             print(f"| {'':<25} | {'Simulated Annealing (simulated_annealing.py)':<45} | {sa_res['rows']:>12} | {sa_res['time']:>10.4f} |")
             f.write(f"{' ':<10} {'Simulated_Annealing':<25} {sa_res['rows']:>12} {sa_res['time']:>10.4f}\n")
+
+            # ACTS
+            acts_res = result['acts']
+            print(f"| {'':<25} | {'ACTS (acts_runner.py)':<45} | {acts_res['rows']:>12} | {acts_res['time']:>10.4f} |")
+            f.write(f"{' ':<10} {'ACTS':<25} {acts_res['rows']:>12} {acts_res['time']:>10.4f}\n")
 
             print(line)
 

@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<System name="SampleSystem" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="C:\nbworkspace\fireeye\src\edu\uta\cse\fireeye\resources\fireeyeinput.xsd">
+	<Parameters>
+		<!-- only compare with MINSEP and MAXALTDIFF -->
+		<Parameter name="Cur_Vertical_Sep">
+			<values>
+				<value>299</value>
+				<value>300</value>
+				<value>601</value>
+			</values>
+		</Parameter>
+		<!-- only compare with MINSEP and MAXALTDIFF -->
+		<Parameter name="Cur_Vertical_Sep">
+			<values>
+				<value>true</value>
+				<value>false</value>
+			</values>
+		</Parameter>
+		<!-- only compare with MINSEP and MAXALTDIFF -->
+		<Parameter name="Two_of_Three_Reports_Valid">
+			<values>
+				<value>true</value>
+				<value>false</value>
+			</values>
+		</Parameter>
+		<!-- Low and High, only compare with Other_Tracked_Alt -->
+		<Parameter name="Own_Tracked_Alt">
+			<values>
+				<value>1</value>
+				<value>2</value>
+			</values>
+		</Parameter>
+		<!-- Low and High, only compare with Other_Tracked_Alt -->
+		<Parameter name="Other_Tracked_Alt">
+			<values>
+				<value>1</value>
+				<value>2</value>
+			</values>
+		</Parameter>
+		<!-- only compare with OLEV-->
+		<Parameter name="Own_Tracked_Alt_Rate">
+			<values>
+				<value>600</value>
+				<value>601</value>
+			</values>
+		</Parameter>
+		<!-- only compare with OLEV -->
+		<Parameter name="Alt_Layer_Value">
+			<values>
+				<value>0</value>
+				<value>1</value>
+				<value>2</value>
+				<value>3</value>
+			</values>
+		</Parameter>
+		<!-- compare with each other (also see NOZCROSS) and with ALIM -->
+		<Parameter name="Up_Separation">
+			<values>
+				<value>0</value>
+				<value>399</value>
+				<value>400</value>
+				<value>499</value>
+				<value>500</value>
+				<value>639</value>
+				<value>640</value>
+				<value>739</value>
+				<value>740</value>
+				<value>840</value>
+			</values>
+		</Parameter>
+		<!-- compare with each other (also see NOZCROSS) and with ALIM -->
+		<Parameter name="Down_Separation">
+			<values>
+				<value>0</value>
+				<value>399</value>
+				<value>400</value>
+				<value>499</value>
+				<value>500</value>
+				<value>639</value>
+				<value>640</value>
+				<value>739</value>
+				<value>740</value>
+				<value>840</value>
+			</values>
+		</Parameter>
+		<!-- compare with each other (also see NOZCROSS) and with ALIM -->
+		<Parameter name="Other_RAC">
+			<values>
+				<value>NO_INTENT</value>
+				<value>DO_NOT_CLIMB</value>
+				<value>DO_NOT_DESCEND</value>
+			</values>
+		</Parameter>
+		<!-- compare with each other (also see NOZCROSS) and with ALIM -->
+		<Parameter name="Other_Capability">
+			<values>
+				<value>TCAS_TA</value>
+				<value>OTHER</value>
+			</values>
+		</Parameter>
+		<!-- compare with each other (also see NOZCROSS) and with ALIM -->
+		<Parameter name="Climb_Inhibit">
+			<values>
+				<value>TRUE</value>
+				<value>FALSE</value>
+			</values>
+		</Parameter>
+	</Parameters>
+	<Relation/>
+	<Constraint/>
+	<Misc/>
+</System>

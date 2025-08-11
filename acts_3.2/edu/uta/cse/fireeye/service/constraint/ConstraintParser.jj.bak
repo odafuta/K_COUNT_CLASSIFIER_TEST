@@ -1,0 +1,477 @@
+options {
+	static = false;
+}
+
+PARSER_BEGIN(ConstraintParser)
+
+package edu.uta.cse.fireeye.constraint;
+
+import java.util.HashMap;
+import java.io.StringReader;
+
+public class ConstraintParser {
+
+   // store parameter values
+   private HashMap params;
+
+   public ConstraintParser (String constraint) {
+      this(new StringReader (constraint));
+      params = new HashMap ();
+   }
+ 
+   // add a param/value pair
+   public void addParam (String pname, Object pvalue) {
+      params.put(pname, pvalue);
+   } 
+
+   public Object lookup (String pname) {
+     return params.get(pname);
+   }
+
+   public boolean parse () {
+      boolean rval = true;
+      try {
+        Constraint (true);
+      }
+      catch (Exception ex) {
+        System.out.println("Parser Exception: " + ex);
+        rval = false;
+      }
+
+      return rval;
+   }
+
+   public boolean evaluate () {
+      boolean rval = true;
+      try {
+        rval = ((Boolean) Constraint (false)).booleanValue();
+      }
+      catch (Exception ex) {
+        System.out.println("Parser Exception: " + ex);
+        rval = false;
+      }      
+
+      return rval;
+   }
+
+   public static void main (String args[]) {
+      ConstraintParser parser = new ConstraintParser (args[0]);
+      //parser.addParam ("x", Boolean.TRUE);
+      //parser.addParam ("y", new Integer(10));
+      //parser.addParam ("z", "test");
+      //System.out.println(parser.evaluate());
+      System.out.println(parser.parse());
+   }
+}
+
+PARSER_END(ConstraintParser)
+
+SKIP:
+{
+   " "
+   | "\t"
+   | "\n"
+   | "\r"
+}
+
+TOKEN: 
+{
+   < INTEGER_LITERAL: ["0"-"9"] (["0"-"9"])* >
+|
+   < STRING_LITERAL: 
+                "\"" 
+		(~["\"","\\","\n","\r"])*
+		"\""
+   >
+|  
+   < TRUE: "true" | "TRUE" >
+|
+   < FALSE: "false" | "FALSE" >
+|
+   < IDENTIFIER: <LETTER> (<LETTER> | <DIGIT>)* >
+| 
+   < #LETTER: ["A"-"Z", "a"-"z", "_"] >
+|
+   < #DIGIT: ["0"-"9"] >
+|
+   < EQ : "=" | "==" >
+|	
+   < GT:   ">"  >
+|	
+   < LT:   "<"  >
+|	
+   < LE:   "<=" >
+|	
+   < GE:   ">=" >
+|	
+   < NE:   "!=" >
+|	
+   < AND:  "&&" >
+|	
+   < OR:   "||" >
+|	
+   < NOT:  "!" | "~">
+|
+   < IM:   "=>" >
+|	
+   < PLUS: "+"  >
+|	
+   < MINUS: "-"  >
+|	
+   < MUL:  "*"  >
+|	
+   < DIV:  "/"  >
+|	
+   < MOD:  "%"  >
+}
+
+Object Constraint (boolean parse_only) :
+{
+   Object rval;
+}
+{
+   (rval = LogicalExpression (parse_only)) {
+     return rval;
+   }
+}
+
+Object LogicalExpression (boolean parse_only) :
+{
+   Object rval;
+}
+{
+   (rval = ImplicativeExpression (parse_only)) {
+      return rval;
+   }
+}
+
+Object ImplicativeExpression (boolean parse_only) :
+{
+   Object rval;
+   Object temp;
+}
+{
+   (rval = OrExpression (parse_only)) 
+   (<IM> (temp = OrExpression (parse_only)) {
+      if (!parse_only) {
+        rval = new Boolean (
+                  !((Boolean) rval).booleanValue () 
+                   || ((Boolean) temp).booleanValue ());
+      }
+    }
+   ) * 
+   {
+     return rval;
+   }
+}
+
+Object OrExpression (boolean parse_only) :
+{
+   Object rval;
+   Object temp;
+}
+{
+   (rval = AndExpression (parse_only)) 
+   (<OR> (temp = AndExpression (parse_only)) {
+      if(!parse_only) {
+         rval = new Boolean (
+               ((Boolean) rval).booleanValue() 
+               || ((Boolean) temp).booleanValue());
+      }
+   }) *
+   {
+      return rval;
+   }
+}
+
+Object AndExpression (boolean parse_only) :
+{
+   Object rval;
+   Object temp;
+}
+{
+   (rval = RelationalExpression (parse_only)) (
+       <AND> (temp = RelationalExpression (parse_only)) {
+         if (!parse_only) {
+             rval = new Boolean(
+                   ((Boolean) rval).booleanValue () 
+                   && ((Boolean) temp).booleanValue ());
+         }
+       }
+   ) *
+   {
+       return rval;
+   }
+}
+
+Object RelationalExpression (boolean parse_only) :
+{
+   Object rval;
+   Object temp;
+}
+{
+   (rval = AdditiveExpression (parse_only))
+   (
+     ( <LT> (temp = AdditiveExpression (parse_only)) ) {
+       if (!parse_only) {
+        if (temp instanceof Integer) {
+            if(((Integer) rval).intValue() < ((Integer) temp).intValue ()) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+        else if (temp instanceof String) {
+           int tmp = ((String) rval).compareTo ((String) temp);
+            if (tmp < 0) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+       }
+     }
+     |
+     ( <GT> (temp = AdditiveExpression (parse_only)) ) {
+       if (!parse_only) {
+        if (temp instanceof Integer) {
+            if(((Integer) rval).intValue() > ((Integer) temp).intValue()) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+        else if (temp instanceof String) {
+            int tmp = ((String) rval).compareTo ((String) temp);
+            if (tmp > 0) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+       }
+     }
+     |
+     ( <LE> (temp = AdditiveExpression (parse_only)) ) {
+       if (!parse_only) {
+        if (temp instanceof Integer) {
+            if(((Integer) rval).intValue() <= ((Integer) temp).intValue()) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+        else if (temp instanceof String) {
+            int tmp = ((String) rval).compareTo ((String) temp);
+            if (tmp <= 0) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+       }
+     }
+     |
+     ( <GE> (temp = AdditiveExpression (parse_only)) ) {
+       if (!parse_only) {
+        if (temp instanceof Integer) {
+            if(((Integer) rval).intValue() >= ((Integer) temp).intValue()) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+        else if (temp instanceof String) {
+            int tmp = ((String) rval).compareTo ((String) temp);
+            if (tmp >= 0) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+       }
+     }
+     |
+     ( <EQ> (temp = AdditiveExpression (parse_only)) ) {
+       if (!parse_only) {
+        if (temp instanceof Integer) {
+            if(((Integer) rval).intValue() == ((Integer) temp).intValue()) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+        else if (temp instanceof String) {
+            int tmp = ((String) rval).compareTo ((String) temp);
+            if (tmp == 0) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+        else if (temp instanceof Boolean) {
+            if(((Boolean) rval).equals(temp)) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        } 
+       }
+     }
+     |
+     ( <NE> (temp = AdditiveExpression (parse_only)) ) {
+       if (!parse_only) {
+        if (temp instanceof Integer) {
+            if(((Integer) rval).intValue() != ((Integer) temp).intValue()) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+        else if (temp instanceof String) {
+            int tmp = ((String) rval).compareTo ((String) temp);
+            if (tmp != 0) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+        else if (temp instanceof Boolean) {
+            if(!((Boolean) rval).equals(temp)) {
+               rval = Boolean.TRUE;
+            }
+            else {
+               rval = Boolean.FALSE;
+            }
+        }
+      } 
+     }
+   ) *
+   {
+     return rval;
+   }
+}
+
+Object AdditiveExpression (boolean parse_only) :
+{
+   Object rval = null;
+   Object temp;
+}
+{
+   (rval = MultiplicativeExpression (parse_only)) (
+      ( <PLUS> (temp = MultiplicativeExpression (parse_only)) ) {
+        if (!parse_only) 
+         rval = new Integer(((Integer) rval).intValue() + ((Integer) temp).intValue ());
+      }
+      |
+      ( <MINUS> (temp = MultiplicativeExpression (parse_only)) ) {
+        if (!parse_only)
+         rval = new Integer(((Integer) rval).intValue() - ((Integer) temp).intValue ());
+      }
+   )*
+   {
+      return rval;
+   }
+}
+
+Object MultiplicativeExpression (boolean parse_only) :
+{
+   Object rval = null;
+   Object temp;
+}
+{
+   (rval = UnaryExpression (parse_only)) 
+   (
+      (<MUL> (temp = UnaryExpression (parse_only))) {
+       
+	--add else part
+	if (!parse_only) 
+         rval = new Integer(((Integer) rval).intValue() * ((Integer) temp).intValue ());
+      }
+      (<DIV> (temp = UnaryExpression (parse_only) )) {
+        if (!parse_only)
+         rval = new Integer(((Integer) rval).intValue() / ((Integer) temp).intValue ());
+      }
+      |
+      (<MOD> (temp = UnaryExpression (parse_only) )) {
+        if (!parse_only)
+         rval = new Integer(((Integer) rval).intValue() % ((Integer) temp).intValue ());
+      }
+   )*
+   { return rval; }
+}
+
+Object UnaryExpression (boolean parse_only) :
+{
+   Token t;
+   Object temp;
+   Object rval = null;
+}
+{
+    ((t=<INTEGER_LITERAL>) {
+      if (!parse_only) {
+        try {
+            int val = Integer.parseInt (t.image);
+            rval = new Integer (val);
+        } catch (Exception ex) {
+            throw new ParseException ();
+        }
+      }
+    }
+    |
+    (t=<STRING_LITERAL>) {
+       if (!parse_only) {
+         // strip the quotes
+         rval = t.image.substring(1, t.image.length()-1);
+       }
+    }
+    |
+    (<TRUE>) {
+         rval = Boolean.TRUE;
+    }
+    |
+    (<FALSE>) {
+         rval = Boolean.FALSE;
+    }
+    |
+    (t=<IDENTIFIER>) {
+      if (!parse_only) {
+        // look up the value of a variable
+        rval = lookup (t.image);
+        if (rval == null) {
+           throw new ParseException ("Unrecognized variable!");
+        }
+      }
+    }
+    | <NOT> (temp = UnaryExpression (parse_only)) {
+      if (!parse_only) {
+        try {
+          rval = new Boolean(
+                   !((Boolean) temp).booleanValue ()
+                 );
+        }
+        catch (Exception ex) {
+          throw new ParseException ("Incorrect type!");
+        }
+      }
+    }
+    | 
+    "(" (rval = LogicalExpression (parse_only)) ")" 
+    )
+    { 
+       return rval; 
+    }
+}
