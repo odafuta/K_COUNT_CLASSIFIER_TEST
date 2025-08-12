@@ -157,6 +157,7 @@ k_count_classifier_test/
 ├── plot_without_acts.py                     # ACTS除く3つアルゴリズム結果可視化
 ├── split_csv_by_algorithm.py                     # 個別正規化結果csvファイル作成
 ├── acts_3.2/                   # ACTS ライブラリ
+├── acts_3.2.jar                   # ACTS ライブラリのJavaプログラム本体（Javaで直接実行）
 ├── acts_inputs/                # ACTS 入力ファイル
 |── fig/                        # 生成グラフ
 ```
