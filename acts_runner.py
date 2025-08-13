@@ -105,7 +105,8 @@ def run_acts_covering_array(
     tau: int, 
     k: int,
     seed: int = 0,
-    verbose: bool = True
+    verbose: bool = True,
+    timeout_seconds: int = 600
 ) -> Dict[str, Any]:
     """
     Run ACTS tool to generate covering array for given parameters
@@ -189,7 +190,7 @@ def run_acts_covering_array(
             cmd,
             capture_output=True,
             text=True,
-            timeout=300  # 5 minute timeout
+            timeout=timeout_seconds
         )
         
         if result.returncode != 0:
@@ -290,7 +291,7 @@ if __name__ == "__main__":
     k = int(sys.argv[3])
     seed = int(sys.argv[4]) if len(sys.argv) > 4 else 42
     
-    result = run_acts_covering_array(n, tau, k, seed=seed, verbose=True)
+    result = run_acts_covering_array(n, tau, k, seed=seed, verbose=True, timeout_seconds=600)
     
     print("\n最終結果:")
     print(f"パラメータ: n={n}, tau={tau}, k={k}")

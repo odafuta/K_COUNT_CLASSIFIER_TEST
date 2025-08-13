@@ -9,23 +9,26 @@ import time
 import pickle
 import base64
 import importlib
+import argparse
+import platform
+import signal
 
 
 # --- New run_with_timeout function using subprocess ---
-def run_with_timeout(timeout_seconds, func, *args, **kwargs):
+def run_with_timeout(run_timeout_seconds, func, *args, **kwargs):
     """
     Executes a function in a separate process with a timeout using subprocess.
 
     This method works by:
     1.  Defining a helper script as a string (`runner_script`).
     2.  Serializing the target function's module, name, and arguments using `pickle`.
-    3.  Executing the helper script with `subprocess.run`, passing the serialized data
-        via standard input.
+    3.  Executing the helper script with a child Python process.
     4.  The helper script deserializes the data, imports the module, runs the function,
         and prints the pickled result to its standard output.
     5.  The parent process reads the stdout and deserializes the result.
-    6.  `subprocess.run`'s `timeout` argument handles killing the process if it
-        exceeds the time limit.
+    6.  If `run_timeout_seconds` is set (> 0), the parent enforces it and kills the child
+        (and its descendants where possible) on timeout.
+    If `run_timeout_seconds` is None or <= 0, no timeout is enforced.
     """
     runner_script = """
 import sys
@@ -65,27 +68,54 @@ except Exception as e:
     encoded_data = base64.b64encode(pickled_data)
 
     try:
-        # Execute the runner script in a new Python process
-        proc = subprocess.run(
+        # Start the runner script in a new Python process
+        proc = subprocess.Popen(
             [sys.executable, "-c", runner_script],
-            input=encoded_data,
-            capture_output=True,
-            timeout=timeout_seconds,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True  # New process group on POSIX
         )
-        proc.check_returncode() # Raise an exception if the subprocess returned an error
-        
+
+        # Communicate with optional timeout
+        if run_timeout_seconds and run_timeout_seconds > 0:
+            stdout_data, stderr_data = proc.communicate(input=encoded_data, timeout=run_timeout_seconds)
+        else:
+            stdout_data, stderr_data = proc.communicate(input=encoded_data)
+
+        # Raise if the subprocess returned an error
+        if proc.returncode != 0:
+            # Bubble up child error text
+            err_text = stderr_data.decode(errors='ignore') if stderr_data else ''
+            raise subprocess.CalledProcessError(proc.returncode, proc.args, output=stdout_data, stderr=err_text.encode())
+
         # If successful, deserialize the result from stdout
-        result = pickle.loads(proc.stdout)
-        return result, False # Return result, no timeout
+        result = pickle.loads(stdout_data)
+        return result, False  # Return result, no timeout
 
     except subprocess.TimeoutExpired:
-        print(f"  -> タイムアウト：{timeout_seconds}秒以内に終了しませんでした。")
-        return None, True # Return nothing, timeout occurred
+        # Kill the entire process tree if possible
+        try:
+            if platform.system().lower().startswith('win'):
+                # Use taskkill to terminate the process tree on Windows
+                subprocess.run(f"taskkill /PID {proc.pid} /T /F", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                # POSIX: kill the whole process group created by start_new_session
+                try:
+                    pgid = os.getpgid(proc.pid)
+                    os.killpg(pgid, signal.SIGKILL)
+                except Exception:
+                    proc.kill()
+        except Exception:
+            pass
+        print(f"  -> タイムアウト：{run_timeout_seconds}秒以内に終了しませんでした。")
+        return None, True  # Return nothing, timeout occurred
     
     except subprocess.CalledProcessError as e:
         # The subprocess exited with an error. Print its stderr for debugging.
-        print(f"  -> Subprocess failed. Error: {e.stderr.decode()}")
-        return None, True # Return nothing, an error occurred
+        err_msg = e.stderr.decode() if isinstance(e.stderr, (bytes, bytearray)) else str(e.stderr)
+        print(f"  -> Subprocess failed. Error: {err_msg}")
+        return None, True  # Return nothing, an error occurred
 
 # --- Step 1: Ensure all required script files are present ---
 required_files = ['adaptive_sampling.py', 'heuristic_greedy.py', 'simulated_annealing.py', 'acts_runner.py', 'testcase_generator.py']
@@ -109,6 +139,17 @@ except ImportError as e:
     sys.exit(1)
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run covering array experiments with timeouts.")
+    parser.add_argument("--timeout-seconds", type=int, default=600, help="Global timeout in seconds (default: 600). Use 0 or negative to disable.")
+    parser.add_argument("--timeout-as", type=int, default=None, help="Adaptive Sampling timeout in seconds (overrides global). 0 or negative to disable.")
+    parser.add_argument("--timeout-hg", type=int, default=None, help="Heuristic Greedy timeout in seconds (overrides global). 0 or negative to disable.")
+    parser.add_argument("--timeout-sa", type=int, default=None, help="Simulated Annealing timeout in seconds (overrides global). 0 or negative to disable.")
+    parser.add_argument("--timeout-acts", type=int, default=None, help="ACTS timeout in seconds (overrides global). 0 or negative to disable.")
+    parser.add_argument("--no-timeout", action="store_true", help="Disable timeout for all algorithms (overrides all timeout options).")
+    return parser.parse_args()
+
+
 def run_test_case_generator():
     """Executes the testcase_generator.py script."""
     print("Running test case generator...")
@@ -119,6 +160,7 @@ def run_test_case_generator():
         print(f"Error running testcase_generator.py: {e}")
         print(f"Stderr: {e.stderr}")
         sys.exit(1)
+
 
 def load_test_cases():
     """Loads test cases from the generated JSON file."""
@@ -132,8 +174,25 @@ def load_test_cases():
         print("Error: Could not decode 'test_cases.json'. It might be empty or corrupt.")
         return []
 
+
 def main():
     """Main function to run the experiment."""
+    args = parse_args()
+
+    # Resolve effective timeouts per algorithm
+    if args.no_timeout:
+        timeout_global = 0
+        timeout_as = 0
+        timeout_hg = 0
+        timeout_sa = 0
+        timeout_acts = 0
+    else:
+        timeout_global = args.timeout_seconds
+        timeout_as = args.timeout_as if args.timeout_as is not None else timeout_global
+        timeout_hg = args.timeout_hg if args.timeout_hg is not None else timeout_global
+        timeout_sa = args.timeout_sa if args.timeout_sa is not None else timeout_global
+        timeout_acts = args.timeout_acts if args.timeout_acts is not None else timeout_global
+
     # Generate the test cases first
     run_test_case_generator()
     test_cases = load_test_cases()
@@ -145,7 +204,6 @@ def main():
     # A common seed for all algorithms for a fair comparison on a given test case
     common_seed = 42
     all_results = []
-    timeout_seconds = 600
 
     print("\n--- Starting Experiment ---")
 
@@ -158,7 +216,7 @@ def main():
         # --- Adaptive Sampling ---
         print("Running Adaptive Sampling...")
         as_result, as_timeout = run_with_timeout(
-            timeout_seconds, generate_LVCA_adaptive_sampling,
+            timeout_as, generate_LVCA_adaptive_sampling,
             n, tau, k, seed=common_seed, verbose=False
         )
         if as_timeout or as_result is None:
@@ -170,7 +228,7 @@ def main():
         # --- Heuristic Greedy ---
         print("Running Heuristic Greedy...")
         hg_result, hg_timeout = run_with_timeout(
-            timeout_seconds, generate_binary_covering_array_heuristic_greedy,
+            timeout_hg, generate_binary_covering_array_heuristic_greedy,
             n, tau, k, seed=common_seed, verbose=False
         )
         if hg_timeout or hg_result is None:
@@ -182,7 +240,7 @@ def main():
         # --- Simulated Annealing ---
         print("Running Simulated Annealing...")
         sa_result, sa_timeout = run_with_timeout(
-            timeout_seconds, lv_cit_sa,
+            timeout_sa, lv_cit_sa,
             n, tau, k, seed=common_seed, verbose=False
         )
         if sa_timeout or sa_result is None:
@@ -197,8 +255,8 @@ def main():
         # --- ACTS ---
         print("Running ACTS...")
         acts_result, acts_timeout = run_with_timeout(
-            timeout_seconds, run_acts_covering_array,
-            n, tau, k, seed=common_seed, verbose=False
+            timeout_acts, run_acts_covering_array,
+            n, tau, k, seed=common_seed, verbose=False, timeout_seconds=(None if timeout_acts and timeout_acts <= 0 else timeout_acts)
         )
         if acts_timeout or acts_result is None:
             case_results['acts'] = {'rows': 'TIMEOUT', 'time': float('inf')}
@@ -230,7 +288,7 @@ def main():
 
 
     with open("result_summary.csv", "w") as f:
-
+        
         f.write(f"{'(n,tau,k)':<10} {'Algorithm':<25} {'Array_Size':>12} {'Time(s)':>10}\n")
 
         for result in all_results:
