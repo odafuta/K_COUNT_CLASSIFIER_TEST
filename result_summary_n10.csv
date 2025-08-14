@@ -1,0 +1,65 @@
+(n,tau,k)  Algorithm                   Array_Size    Time(s)
+(10, 2, 2) Adaptive_Sampling                   45     0.0109
+           Heuristic_Greedy                    46     3.6237
+           Simulated_Annealing                 45     0.0027
+           ACTS                                45     1.3569
+(10, 2, 3) Adaptive_Sampling                   21     0.0113
+           Heuristic_Greedy                    17     1.6384
+           Simulated_Annealing                 17     1.4097
+           ACTS                                20     0.9488
+(10, 2, 4) Adaptive_Sampling                   13     0.0049
+           Heuristic_Greedy                    12     1.4103
+           Simulated_Annealing                  9     1.3727
+           ACTS                                12     0.5741
+(10, 2, 5) Adaptive_Sampling                    9     0.0032
+           Heuristic_Greedy                     9     1.2697
+           Simulated_Annealing                  6     1.2929
+           ACTS                                10     0.5728
+(10, 2, 6) Adaptive_Sampling                    8     0.0033
+           Heuristic_Greedy                     8     1.1860
+           Simulated_Annealing                  5     1.3643
+           ACTS                                12     0.5525
+(10, 2, 7) Adaptive_Sampling                    8     0.0031
+           Heuristic_Greedy                     9     1.2459
+           Simulated_Annealing                  7     1.3567
+           ACTS                                20     0.8248
+(10, 3, 3) Adaptive_Sampling                  120     0.1325
+           Heuristic_Greedy                   120    27.7986
+           Simulated_Annealing                120     0.0181
+           ACTS                               120     3.3210
+(10, 3, 4) Adaptive_Sampling                   45     0.0815
+           Heuristic_Greedy                    40    13.9502
+           Simulated_Annealing                 34     9.3538
+           ACTS                                45     0.9494
+(10, 3, 5) Adaptive_Sampling                   22     0.0403
+           Heuristic_Greedy                    21    13.2389
+           Simulated_Annealing                 18     5.3512
+           ACTS                                26     0.9088
+(10, 3, 6) Adaptive_Sampling                   24     0.0428
+           Heuristic_Greedy                    17    10.7996
+           Simulated_Annealing                 16     5.8118
+           ACTS                                43     1.2176
+(10, 3, 7) Adaptive_Sampling                   35     0.0507
+           Heuristic_Greedy                    16    10.8004
+           Simulated_Annealing                 30     5.3320
+           ACTS                               120     3.8792
+(10, 3, 8) Adaptive_Sampling                   45     0.0496
+           Heuristic_Greedy                    19    11.4611
+           Simulated_Annealing                 45     0.1979
+           ACTS                                45     1.4506
+(10, 4, 4) Adaptive_Sampling                  210     0.8438
+           Heuristic_Greedy                   212   140.6416
+           Simulated_Annealing                210     0.0642
+           ACTS                               210     5.7937
+(10, 4, 5) Adaptive_Sampling                   71     0.5098
+           Heuristic_Greedy                    63    84.6723
+           Simulated_Annealing                 53    33.5851
+           ACTS                                81     1.2357
+(10, 4, 6) Adaptive_Sampling                   80     0.4638
+           Heuristic_Greedy                    41    77.6077
+           Simulated_Annealing                 62    28.4829
+           ACTS                               210     5.7528
+(10, 4, 7) Adaptive_Sampling                  120     0.4243
+           Heuristic_Greedy                    37    74.0672
+           Simulated_Annealing        NOT_COVERED     1.1611
+           ACTS                               120     1.5552

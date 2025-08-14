@@ -1,0 +1,49 @@
+(n,tau,k)  Algorithm                   Array_Size    Time(s)
+(20, 2, 2) Adaptive_Sampling                  190     0.2760
+           Heuristic_Greedy                   191    41.7252
+           Simulated_Annealing                190     0.0279
+           ACTS                               190    45.3626
+(20, 2, 3) Adaptive_Sampling                   87     0.1301
+           Heuristic_Greedy                    70    16.3997
+           Simulated_Annealing                 68    23.1178
+           ACTS                                90     8.7748
+(20, 2, 4) Adaptive_Sampling                   57     0.1137
+           Heuristic_Greedy                    40    10.8472
+           Simulated_Annealing                 37    15.2456
+           ACTS                                57     4.4143
+(20, 2, 5) Adaptive_Sampling                   33     0.0701
+           Heuristic_Greedy                    28     8.5538
+           Simulated_Annealing                 22    16.4489
+           ACTS                                37     2.1966
+(20, 2, 6) Adaptive_Sampling                   28     0.0450
+           Heuristic_Greedy                    21     6.4538
+           Simulated_Annealing                 17    10.3810
+           ACTS                                26     1.5850
+(20, 2, 7) Adaptive_Sampling                   21     0.0291
+           Heuristic_Greedy                    17     5.6416
+           Simulated_Annealing                 13     7.3289
+           ACTS                                21     1.2174
+(20, 3, 3) Adaptive_Sampling                 1140    15.9664
+           Heuristic_Greedy               TIMEOUT        inf
+           Simulated_Annealing               1140     1.3957
+           ACTS                           TIMEOUT        inf
+(20, 3, 4) Adaptive_Sampling                  438    20.8513
+           Heuristic_Greedy                   342   552.4649
+           Simulated_Annealing            TIMEOUT        inf
+           ACTS                           TIMEOUT        inf
+(20, 3, 5) Adaptive_Sampling                  229     7.8535
+           Heuristic_Greedy                   168   320.1421
+           Simulated_Annealing                176   520.4319
+           ACTS                           TIMEOUT        inf
+(20, 3, 6) Adaptive_Sampling                  140     3.7058
+           Heuristic_Greedy                   103   216.9562
+           Simulated_Annealing                 97   417.0214
+           ACTS                               189   107.2595
+(20, 3, 7) Adaptive_Sampling                   94     2.1961
+           Heuristic_Greedy                    65   171.6527
+           Simulated_Annealing                 59   319.2478
+           ACTS                               131    16.3399
+(20, 3, 8) Adaptive_Sampling                   59     1.2433
+           Heuristic_Greedy                    48   153.2505
+           Simulated_Annealing                 40   191.1353
+           ACTS                                78     4.4114
